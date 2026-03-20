@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WildTrack — Staff Ops</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080c08;
+  --deep: #0c1410;
+  --surface: #111a12;
+  --panel: #141f14;
+  --border: rgba(255,255,255,0.07);
+  --green: #1e3320;
+  --lime: #7ab648;
+  --amber: #e8c547;
+  --red: #c0392b;
+  --muted: #7a8c7a;
+  --cream: #e8e0cc;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 50% 50% at 80% 20%, rgba(30,51,32,0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 35% 40% at 10% 80%, rgba(200,165,58,0.07) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+  animation: atmo 14s ease-in-out infinite alternate;
+}
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px);
+  pointer-events:none; z-index:0; opacity:0.5;
+}
+@keyframes atmo { from { transform:scale(1); } to { transform:scale(1.04) translate(-8px,8px); } }
+
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  transition: grid-template-columns 0.3s ease;
+}
+.app.collapsed { grid-template-columns: 52px 1fr; }
+
+/* Sidebar */
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  width: 220px;
+  transition: width 0.3s ease;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.app.collapsed .sidebar { width: 52px; }
+.sidebar-toggle { position:absolute; top:14px; right:8px; width:22px; height:22px; background:var(--green); border:1px solid var(--border); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:9px; transition:all 0.2s; z-index:20; }
+.sidebar-toggle:hover { background:var(--lime); color:var(--bg); }
+.sidebar-logo { padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0; position:relative; min-height:54px; display:flex; flex-direction:column; justify-content:center; }
+.logo-text { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:3px; color:var(--cream); white-space:nowrap; overflow:hidden; transition:opacity 0.2s; }
+.logo-text span { color:var(--lime); }
+.app.collapsed .logo-text { opacity:0; pointer-events:none; }
+.logo-icon { font-size:18px; position:absolute; left:16px; top:50%; transform:translateY(-50%); opacity:0; transition:opacity 0.2s; pointer-events:none; }
+.app.collapsed .logo-icon { opacity:1; }
+.logo-time { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); margin-top:4px; letter-spacing:1px; white-space:nowrap; overflow:hidden; transition:opacity 0.2s; }
+.app.collapsed .logo-time { opacity:0; }
+.nav { flex:1; padding:12px 0; overflow:hidden; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; cursor:pointer; transition:all 0.2s; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); text-decoration:none; border-left:2px solid transparent; white-space:nowrap; overflow:hidden; }
+.nav-item:hover { background:var(--green); color:var(--cream); }
+.nav-item.active { background:var(--green); color:var(--lime); border-left-color:var(--lime); }
+.nav-icon { font-size:15px; width:20px; text-align:center; flex-shrink:0; }
+.nav-label { transition:opacity 0.2s; }
+.app.collapsed .nav-label { opacity:0; }
+.nav-section { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:3px; color:var(--muted); padding:14px 16px 6px; opacity:0.6; white-space:nowrap; overflow:hidden; transition:opacity 0.15s; }
+.app.collapsed .nav-section { opacity:0; }
+.sidebar-status { padding:14px 16px; border-top:1px solid var(--border); flex-shrink:0; overflow:hidden; }
+.status-item { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; white-space:nowrap; }
+.status-item:last-child { margin-bottom:0; }
+.status-text { transition:opacity 0.2s; }
+.app.collapsed .status-text { opacity:0; }
+.dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; animation:blink 2s infinite; }
+.dot.lime { background:var(--lime); }
+.dot.amber { background:var(--amber); animation-duration:1s; }
+.dot.red { background:var(--red); animation-duration:0.8s; }
+@keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(0.7);} }
+
+/* Content */
+.content {
+  overflow-y: auto;
+  padding: 0;
+}
+.content::-webkit-scrollbar { width:3px; }
+.content::-webkit-scrollbar-track { background:var(--surface); }
+.content::-webkit-scrollbar-thumb { background:var(--green); }
+
+/* Page header */
+.page-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.page-title { font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:3px; }
+.staff-profile { display:flex; align-items:center; gap:12px; }
+.staff-avatar { width:34px; height:34px; border-radius:50%; background:var(--green); border:2px solid var(--lime); display:flex; align-items:center; justify-content:center; font-size:16px; }
+.staff-name { font-size:13px; font-weight:500; }
+.staff-zone { font-family:'Space Mono',monospace; font-size:9px; color:var(--lime); letter-spacing:1px; }
+
+/* Sections */
+.section { padding:20px 24px; }
+.section-title { font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:3px; color:var(--muted); margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+.section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* Shift cards */
+.shift-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:0; }
+.shift-card { background:var(--panel); border:1px solid var(--border); padding:16px; transition:border-color 0.2s; }
+.shift-card:hover { border-color:rgba(255,255,255,0.14); }
+.shift-card-title { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+.shift-big { font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--amber); line-height:1; }
+.shift-small { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.5; }
+.badge { display:inline-block; font-family:'Space Mono',monospace; font-size:9px; padding:2px 8px; letter-spacing:1px; }
+.badge-lime { background:rgba(122,182,72,0.15); color:var(--lime); border:1px solid rgba(122,182,72,0.25); }
+.badge-amber { background:rgba(232,197,71,0.15); color:var(--amber); border:1px solid rgba(232,197,71,0.25); }
+.badge-red { background:rgba(192,57,43,0.15); color:var(--red); border:1px solid rgba(192,57,43,0.25); }
+
+.fuel-bar-bg { height:4px; background:var(--green); margin-top:8px; }
+.fuel-bar { height:100%; background:var(--lime); transition:width 0.5s; }
+
+.quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
+.qa-btn { padding:8px 6px; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; text-transform:uppercase; border:none; cursor:pointer; transition:all 0.2s; text-align:center; clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px)); }
+.qa-lime { background:rgba(122,182,72,0.2); color:var(--lime); }
+.qa-lime:hover { background:rgba(122,182,72,0.35); }
+.qa-amber { background:rgba(232,197,71,0.2); color:var(--amber); }
+.qa-amber:hover { background:rgba(232,197,71,0.35); }
+.qa-muted { background:rgba(122,140,122,0.15); color:var(--muted); }
+.qa-muted:hover { background:rgba(122,140,122,0.25); }
+.qa-red { background:rgba(192,57,43,0.2); color:var(--red); animation:redPulse 2s infinite; }
+@keyframes redPulse { 0%,100%{background:rgba(192,57,43,0.2);} 50%{background:rgba(192,57,43,0.35);} }
+.qa-red:hover { background:rgba(192,57,43,0.4); }
+
+/* Field tools grid */
+.tools-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+.panel-box { background:var(--panel); border:1px solid var(--border); }
+.panel-box-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.panel-box-title { font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:2px; }
+.panel-box-body { padding:16px; }
+
+/* Form elements */
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+.form-group { margin-bottom:10px; }
+.form-label { display:block; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.form-input, .form-select, .form-textarea {
+  width:100%; background:var(--surface); border:1px solid var(--border);
+  color:var(--cream); padding:10px 12px; font-family:'DM Sans',sans-serif;
+  font-size:13px; outline:none; transition:border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--amber); }
+.form-textarea { resize:none; height:64px; }
+
+/* Behaviour chips */
+.behaviour-chips { display:flex; gap:6px; flex-wrap:wrap; }
+.bchip { padding:5px 10px; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; cursor:pointer; transition:all 0.2s; border:1px solid var(--border); background:var(--surface); color:var(--muted); }
+.bchip:hover { border-color:var(--amber); color:var(--amber); }
+.bchip.active { background:rgba(232,197,71,0.15); border-color:var(--amber); color:var(--amber); }
+.bchip.aggressive.active { background:rgba(192,57,43,0.15); border-color:var(--red); color:var(--red); }
+
+.submit-btn { width:100%; padding:12px; font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:3px; border:none; cursor:pointer; transition:all 0.2s; clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px)); }
+.btn-lime { background:rgba(122,182,72,0.25); color:var(--lime); border:1px solid rgba(122,182,72,0.4); }
+.btn-lime:hover { background:rgba(122,182,72,0.4); }
+.btn-amber { background:rgba(232,197,71,0.2); color:var(--amber); border:1px solid rgba(232,197,71,0.35); }
+.btn-amber:hover { background:rgba(232,197,71,0.35); }
+
+/* Recent sightings */
+.recent-sighting { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); }
+.recent-sighting:last-child { border-bottom:none; }
+.rs-emoji { font-size:18px; }
+.rs-info { flex:1; }
+.rs-name { font-size:12px; font-weight:500; }
+.rs-meta { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); margin-top:2px; }
+.synced { font-family:'Space Mono',monospace; font-size:8px; color:var(--lime); }
+
+/* Checklist */
+.checklist-progress { margin-bottom:14px; }
+.progress-header { display:flex; justify-content:space-between; margin-bottom:6px; font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); }
+.progress-bar-bg { height:4px; background:var(--green); }
+.progress-bar { height:100%; background:var(--amber); transition:width 0.4s ease; }
+
+.check-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.2s; }
+.check-item:last-child { border-bottom:none; }
+.check-item:hover { background:rgba(122,182,72,0.05); }
+.check-box { width:18px; height:18px; border:1px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+.check-box.checked { background:rgba(122,182,72,0.2); border-color:var(--lime); color:var(--lime); font-size:10px; }
+.check-label { flex:1; font-size:13px; }
+.check-label.done { text-decoration:line-through; color:var(--muted); }
+.check-time { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); }
+
+/* Comms section */
+.comms-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+/* Chat */
+.chat-messages { height:220px; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+.chat-messages::-webkit-scrollbar { width:2px; }
+.chat-messages::-webkit-scrollbar-thumb { background:var(--green); }
+.bubble { max-width:85%; padding:8px 10px; font-size:12px; line-height:1.5; }
+.bubble-sent { background:rgba(232,197,71,0.12); border:1px solid rgba(232,197,71,0.2); align-self:flex-end; }
+.bubble-recv { background:var(--green); border:1px solid var(--border); align-self:flex-start; }
+.bubble-meta { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); margin-bottom:3px; }
+.chat-input-row { display:flex; gap:0; border-top:1px solid var(--border); }
+.chat-input { flex:1; background:var(--surface); border:none; border-right:1px solid var(--border); color:var(--cream); padding:10px 12px; font-family:'DM Sans',sans-serif; font-size:12px; outline:none; }
+.chat-send { background:rgba(122,182,72,0.2); border:none; color:var(--lime); padding:10px 16px; cursor:pointer; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; transition:background 0.2s; }
+.chat-send:hover { background:rgba(122,182,72,0.35); }
+
+/* Alerts */
+.alert-entry { padding:10px 14px; border-bottom:1px solid var(--border); border-left:3px solid transparent; transition:opacity 0.3s; }
+.alert-entry.high { border-left-color:var(--red); }
+.alert-entry.mid { border-left-color:var(--amber); }
+.alert-entry.low { border-left-color:var(--lime); }
+.alert-entry.acked { opacity:0.35; }
+.alert-txt { font-size:12px; color:var(--cream); margin-bottom:4px; }
+.alert-footer { display:flex; justify-content:space-between; align-items:center; }
+.alert-time-s { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); }
+.alert-actions { display:flex; gap:6px; }
+.alert-btn { font-family:'Space Mono',monospace; font-size:8px; padding:3px 8px; border:none; cursor:pointer; transition:all 0.2s; }
+.btn-ack { background:rgba(122,182,72,0.15); color:var(--lime); }
+.btn-ack:hover { background:rgba(122,182,72,0.3); }
+.btn-esc { background:rgba(232,197,71,0.12); color:var(--amber); }
+.btn-esc:hover { background:rgba(232,197,71,0.25); }
+
+/* Shift log */
+.log-entry { padding:7px 14px; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:flex-start; }
+.log-time { font-family:'Space Mono',monospace; font-size:9px; color:var(--amber); flex-shrink:0; }
+.log-text { font-size:12px; color:var(--muted); line-height:1.4; flex:1; }
+.log-zone { font-family:'Space Mono',monospace; font-size:8px; color:var(--lime); padding:1px 5px; border:1px solid rgba(122,182,72,0.2); flex-shrink:0; }
+
+/* Camera section */
+.cam-section { padding:20px 24px; }
+.cam-grid-staff { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.cam-feed { background:#050a05; position:relative; overflow:hidden; cursor:pointer; transition:all 0.2s; aspect-ratio:16/9; }
+.cam-feed:hover { box-shadow:0 0 0 1px var(--amber); }
+.cam-bg { position:absolute; inset:0; background:radial-gradient(ellipse at 40% 60%, #0d1f0e, #050a05); }
+.cam-static { position:absolute; inset:0; opacity:0.06; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); animation:staticA 0.3s steps(3) infinite; }
+@keyframes staticA { 0%{transform:translate(0,0);} 33%{transform:translate(-2px,1px);} 66%{transform:translate(1px,-1px);} 100%{transform:translate(0,0);} }
+.cam-scanline { position:absolute; width:100%; height:2px; background:linear-gradient(transparent,rgba(122,182,72,0.3),transparent); animation:scanD 3s linear infinite; pointer-events:none; }
+@keyframes scanD { from{top:-2px;} to{top:100%;} }
+.cam-overlay { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; padding:8px; pointer-events:none; }
+.cam-top { display:flex; justify-content:space-between; align-items:flex-start; }
+.cam-id { font-family:'Space Mono',monospace; font-size:10px; color:var(--amber); background:rgba(0,0,0,0.6); padding:2px 6px; letter-spacing:1px; }
+.cam-live-badge { display:flex; align-items:center; gap:4px; font-family:'Space Mono',monospace; font-size:8px; color:var(--red); background:rgba(0,0,0,0.6); padding:2px 6px; }
+.cam-bottom { display:flex; justify-content:space-between; align-items:flex-end; }
+.cam-info { font-family:'Space Mono',monospace; font-size:8px; color:rgba(122,182,72,0.85); background:rgba(0,0,0,0.6); padding:3px 6px; line-height:1.5; }
+.cam-gps { font-family:'Space Mono',monospace; font-size:7px; color:var(--muted); background:rgba(0,0,0,0.6); padding:2px 6px; text-align:right; line-height:1.5; }
+.cam-det-box { position:absolute; border:1px solid var(--amber); transition:all 1.5s ease; pointer-events:none; }
+.cam-det-lbl { position:absolute; top:-17px; left:0; font-family:'Space Mono',monospace; font-size:8px; color:var(--amber); background:rgba(0,0,0,0.7); padding:1px 4px; white-space:nowrap; }
+.signal-lost { position:absolute; inset:0; background:rgba(5,10,5,0.85); display:none; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+.signal-lost.show { display:flex; }
+.signal-icon { font-size:22px; opacity:0.4; }
+.signal-txt { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); }
+
+/* Toast */
+.toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:rgba(122,182,72,0.2); border:1px solid rgba(122,182,72,0.4); color:var(--lime); font-family:'Space Mono',monospace; font-size:11px; letter-spacing:2px; padding:10px 24px; opacity:0; transition:all 0.3s; z-index:100; pointer-events:none; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* FAB */
+.fab { position:fixed; bottom:24px; right:24px; z-index:50; }
+.fab-main { width:52px; height:52px; border-radius:50%; background:var(--amber); border:none; cursor:pointer; font-size:22px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(232,197,71,0.3); transition:all 0.2s; animation:fabPulse 3s infinite; }
+@keyframes fabPulse { 0%,100%{box-shadow:0 4px 20px rgba(232,197,71,0.3);} 50%{box-shadow:0 4px 30px rgba(232,197,71,0.5);} }
+.fab-main:hover { transform:scale(1.1); }
+.fab-radial { position:absolute; bottom:60px; right:0; display:flex; flex-direction:column; gap:8px; align-items:flex-end; pointer-events:none; opacity:0; transition:all 0.3s; transform:translateY(10px); }
+.fab-radial.open { pointer-events:all; opacity:1; transform:translateY(0); }
+.fab-item { display:flex; align-items:center; gap:8px; cursor:pointer; padding:6px 10px; background:var(--surface); border:1px solid var(--border); transition:all 0.2s; white-space:nowrap; }
+.fab-item:hover { border-color:var(--amber); }
+.fab-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; color:var(--muted); }
+.fab-icon { font-size:16px; }
+
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); z-index:200; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.3s; }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal-box { background:var(--surface); border:1px solid var(--red); padding:40px; max-width:380px; width:90%; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; transform:translateY(20px); transition:transform 0.3s; }
+.modal-overlay.open .modal-box { transform:translateY(0); }
+.modal-title { font-family:'Bebas Neue',sans-serif; font-size:40px; letter-spacing:4px; color:var(--red); }
+.modal-sub { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; line-height:1.8; }
+.modal-timer { font-family:'Bebas Neue',sans-serif; font-size:56px; color:var(--red); line-height:1; }
+.modal-gps { font-family:'Space Mono',monospace; font-size:11px; color:var(--cream); }
+.modal-cancel { width:100%; padding:14px; background:transparent; border:1px solid rgba(255,255,255,0.15); color:var(--muted); font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px; cursor:pointer; transition:all 0.2s; }
+.modal-cancel:hover { border-color:var(--amber); color:var(--amber); }
+
+@keyframes slideIn { from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
+.slide-in { animation:slideIn 0.3s ease; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle" title="Toggle sidebar">◀</button>
+    <div class="sidebar-logo">
+      <div class="logo-icon">🌿</div>
+      <div class="logo-text">WILD<span>TRACK</span></div>
+      <div class="logo-time" id="sidebar-time">--:--:--</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Navigation</div>
+      <a href="booking.html" class="nav-item"><span class="nav-icon">🎫</span><span class="nav-label">Ticket Booking</span></a>
+      <a href="control.html" class="nav-item"><span class="nav-icon">🖥</span><span class="nav-label">Control Room</span></a>
+      <a href="staff.html" class="nav-item active"><span class="nav-icon">🦺</span><span class="nav-label">Staff Ops</span></a>
+      <div class="nav-section">System</div>
+      <div class="nav-item"><span class="nav-icon">📡</span><span class="nav-label">Sensor Nodes</span></div>
+      <div class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
+    </nav>
+    <div class="sidebar-status">
+      <div class="status-item"><div class="dot lime"></div><span class="status-text">FIREBASE CONNECTED</span></div>
+      <div class="status-item"><div class="dot lime"></div><span class="status-text">ESP32 NODES: 4/4</span></div>
+      <div class="status-item"><div class="dot amber"></div><span class="status-text">SYNC: <span id="last-sync">0s</span></span></div>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <div class="content">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-title">STAFF OPS</div>
+      <div class="staff-profile">
+        <div>
+          <div class="staff-name">Ranger Arjun Desai</div>
+          <div class="staff-zone">BADGE: RNG-04 · ZONE B</div>
+        </div>
+        <div class="staff-avatar">🦺</div>
+      </div>
+    </div>
+
+    <!-- Shift Overview -->
+    <div class="section">
+      <div class="section-title">SHIFT OVERVIEW</div>
+      <div class="shift-grid">
+        <!-- Shift Status -->
+        <div class="shift-card">
+          <div class="shift-card-title">Shift Status</div>
+          <div class="shift-big" id="shift-remaining">6:24</div>
+          <div class="shift-small">hrs remaining</div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);">START: 06:00 · END: 14:00</div>
+            <span class="badge badge-lime">ZONE B ACTIVE</span>
+          </div>
+        </div>
+        <!-- Vehicle -->
+        <div class="shift-card">
+          <div class="shift-card-title">My Vehicle</div>
+          <div class="shift-big">JV-03</div>
+          <div class="shift-small" id="veh-speed-display">24 km/h · Running</div>
+          <div style="margin-top:8px;">
+            <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:4px;">FUEL LEVEL — <span id="fuel-pct">72%</span></div>
+            <div class="fuel-bar-bg"><div class="fuel-bar" id="fuel-bar" style="width:72%;"></div></div>
+          </div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:6px;">ODO: 14,280 km · SVC: 3 Feb</div>
+        </div>
+        <!-- Zone -->
+        <div class="shift-card">
+          <div class="shift-card-title">My Zone</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:var(--lime);line-height:1;">B</div>
+          <div class="shift-small">Tiger Territory</div>
+          <div style="margin-top:8px;">
+            <span class="badge badge-amber">5/6 VEHICLES</span>
+          </div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:6px;">LAST SIGHT: Tiger · 14:32</div>
+        </div>
+        <!-- Quick Actions -->
+        <div class="shift-card">
+          <div class="shift-card-title">Quick Actions</div>
+          <div class="quick-actions">
+            <button class="qa-btn qa-lime" onclick="quickLog()">📋 LOG SIGHT</button>
+            <button class="qa-btn qa-red" onclick="triggerSOS()">🆘 SOS</button>
+            <button class="qa-btn qa-amber" onclick="requestBackup()">📡 BACKUP</button>
+            <button class="qa-btn qa-muted" onclick="markClear()">✓ ZONE CLEAR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Camera Feeds -->
+    <div class="cam-section">
+      <div class="section-title" style="margin-bottom:14px;">LIVE VEHICLE FEEDS</div>
+      <div class="cam-grid-staff" id="staff-cam-grid"></div>
+    </div>
+
+    <!-- Field Tools -->
+    <div class="section">
+      <div class="section-title">FIELD TOOLS</div>
+      <div class="tools-grid">
+        <!-- Sighting Logger -->
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">ANIMAL SIGHTING LOGGER</div>
+            <span class="badge badge-lime" id="my-sightings-count">0 LOGGED</span>
+          </div>
+          <div class="panel-box-body">
+            <div class="form-row">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Species</label>
+                <select class="form-select" id="sight-species">
+                  <option value="">Select animal</option>
+                  <option value="🐯 Bengal Tiger">🐯 Bengal Tiger</option>
+                  <option value="🐘 Asian Elephant">🐘 Asian Elephant</option>
+                  <option value="🐆 Indian Leopard">🐆 Indian Leopard</option>
+                  <option value="🦌 Spotted Deer">🦌 Spotted Deer</option>
+                  <option value="🐗 Wild Boar">🐗 Wild Boar</option>
+                  <option value="🐊 Marsh Crocodile">🐊 Marsh Crocodile</option>
+                  <option value="🦜 Indian Peafowl">🦜 Indian Peafowl</option>
+                  <option value="🦅 Crested Eagle">🦅 Crested Eagle</option>
+                  <option value="❓ Other">❓ Other</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Zone</label>
+                <select class="form-select" id="sight-zone">
+                  <option value="A">Zone A — Riverside</option>
+                  <option value="B" selected>Zone B — Tiger Territory</option>
+                  <option value="C">Zone C — Grassland</option>
+                  <option value="D">Zone D — Deep Forest</option>
+                  <option value="E">Zone E — Hilltop</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">Count</label>
+                <input class="form-input" type="number" id="sight-count" value="1" min="1" max="50">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label class="form-label">GPS (auto)</label>
+                <input class="form-input" type="text" id="sight-gps" value="19.0234°N 72.8512°E">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Behaviour</label>
+              <div class="behaviour-chips">
+                <div class="bchip active" onclick="toggleBchip(this,'CALM')">CALM</div>
+                <div class="bchip" onclick="toggleBchip(this,'ACTIVE')">ACTIVE</div>
+                <div class="bchip aggressive" onclick="toggleBchip(this,'AGGRESSIVE')">AGGRESSIVE</div>
+                <div class="bchip" onclick="toggleBchip(this,'FEEDING')">FEEDING</div>
+                <div class="bchip" onclick="toggleBchip(this,'MOVING')">MOVING</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <textarea class="form-textarea" id="sight-notes" placeholder="Additional observations..."></textarea>
+            </div>
+            <button class="submit-btn btn-lime" onclick="logSighting()">LOG SIGHTING</button>
+            <!-- Recent -->
+            <div style="margin-top:14px;">
+              <div style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">RECENT SIGHTINGS</div>
+              <div id="my-sightings-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Patrol Checklist -->
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">PATROL CHECKLIST</div>
+            <span class="badge badge-amber" id="patrol-progress-badge">0/8</span>
+          </div>
+          <div class="panel-box-body">
+            <div class="checklist-progress">
+              <div class="progress-header">
+                <span>DAILY PATROL — ZONE B</span>
+                <span id="patrol-pct">0%</span>
+              </div>
+              <div class="progress-bar-bg"><div class="progress-bar" id="patrol-bar" style="width:0%;"></div></div>
+            </div>
+            <div id="checklist-items"></div>
+            <button class="submit-btn btn-amber" style="margin-top:12px;" onclick="submitPatrol()">SUBMIT PATROL REPORT</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comms -->
+    <div class="section">
+      <div class="section-title">COMMUNICATIONS</div>
+      <div class="comms-grid">
+        <!-- Ranger Comms -->
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">RANGER COMMS</div>
+            <span class="badge badge-lime">ZONE B CHANNEL</span>
+          </div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chat-input" placeholder="Type message..." onkeydown="if(event.key==='Enter')sendMessage()">
+            <button class="chat-send" onclick="sendMessage()">SEND</button>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="panel-box" style="border-color:rgba(232,197,71,0.2);">
+          <div class="panel-box-header">
+            <div class="panel-box-title">ZONE ALERTS</div>
+            <span class="badge badge-red" id="my-alert-count">2</span>
+          </div>
+          <div id="my-alerts-list" style="max-height:260px;overflow-y:auto;"></div>
+        </div>
+
+        <!-- Shift Log -->
+        <div class="panel-box">
+          <div class="panel-box-header">
+            <div class="panel-box-title">SHIFT LOG</div>
+          </div>
+          <div id="shift-log" style="max-height:220px;overflow-y:auto;"></div>
+          <div style="padding:12px 14px;border-top:1px solid var(--border);">
+            <button class="submit-btn btn-amber" style="font-size:13px;padding:10px;" onclick="exportLog()">EXPORT SHIFT LOG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:80px;"></div>
+  </div>
+</div>
+
+<!-- FAB -->
+<div class="fab">
+  <div class="fab-radial" id="fab-radial">
+    <div class="fab-item" onclick="triggerSOS()"><span class="fab-label">SOS EMERGENCY</span><span class="fab-icon">🆘</span></div>
+    <div class="fab-item" onclick="quickLog()"><span class="fab-label">LOG SIGHTING</span><span class="fab-icon">📋</span></div>
+    <div class="fab-item" onclick="sendRadio()"><span class="fab-label">RADIO</span><span class="fab-icon">📻</span></div>
+    <div class="fab-item" onclick="openMap()"><span class="fab-label">ZONE MAP</span><span class="fab-icon">🗺</span></div>
+  </div>
+  <button class="fab-main" onclick="toggleFAB()" id="fab-main">⚡</button>
+</div>
+
+<!-- SOS Modal -->
+<div class="modal-overlay" id="sos-modal">
+  <div class="modal-box">
+    <div class="modal-title">⚠ SOS</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--red);">ACTIVATED</div>
+    <div class="modal-sub">BROADCASTING EMERGENCY SIGNAL<br>TO ALL RANGER UNITS & CONTROL ROOM</div>
+    <div class="modal-gps">19.0234°N 72.8512°E · ZONE B</div>
+    <div class="modal-timer" id="sos-timer">10</div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);">AUTO CANCEL IN SECONDS</div>
+    <button class="modal-cancel" onclick="cancelSOS()">CANCEL SOS</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// Sidebar toggle
+function toggleSidebar() {
+  const app = document.querySelector('.app');
+  const btn = document.getElementById('sidebar-toggle');
+  app.classList.toggle('collapsed');
+  btn.textContent = app.classList.contains('collapsed') ? '▶' : '◀';
+}
+
+// State
+let checklistState = Array(8).fill(false);
+let sosInterval = null;
+let fabOpen = false;
+let mySightingsCount = 0;
+let myAlertCount = 2;
+let shiftLogEntries = [];
+let syncSecs = 0;
+
+const checklistItems = [
+  'Perimeter check — north boundary',
+  'Perimeter check — south boundary',
+  'Water source inspection',
+  'Vehicle count verification',
+  'Poaching trap sweep',
+  'Tourist headcount',
+  'Weather sensor check',
+  'RFID gate inspection',
+];
+
+const animals = [
+  {emoji:'🐯',name:'Bengal Tiger'},
+  {emoji:'🐘',name:'Asian Elephant'},
+  {emoji:'🦌',name:'Spotted Deer'},
+  {emoji:'🐆',name:'Indian Leopard'},
+  {emoji:'🦜',name:'Indian Peafowl'},
+  {emoji:'🐗',name:'Wild Boar'},
+  {emoji:'🐊',name:'Marsh Crocodile'},
+];
+
+const initMessages = [
+  {sent:false, name:'RNG-01 · Mehta', text:'Zone B tiger near waterhole at sector 4. Advising all vehicles maintain 50m distance.', time:'06:45'},
+  {sent:true, name:'RNG-04 · Arjun', text:'Copy that. JV-03 holding position at 60m. Clear visibility from here.', time:'06:47'},
+  {sent:false, name:'RNG-02 · Sharma', text:'Requesting backup at north gate. Tourist vehicle breakdown, 3 passengers need escort.', time:'07:10'},
+  {sent:true, name:'RNG-04 · Arjun', text:'On my way to north gate. ETA 8 mins.', time:'07:11'},
+  {sent:false, name:'CTRL · Control', text:'BME280 Zone C reading 33°C. Fire watch active. All units report any smoke.', time:'07:30'},
+];
+
+const initAlerts = [
+  {sev:'high', text:'JV-03 recorded 31 km/h — exceeds zone limit of 30 km/h. Reduce speed immediately.', time:'07:42'},
+  {sev:'mid', text:'Zone B at 5/6 vehicle capacity. One slot remaining before lockout.', time:'07:38'},
+];
+
+const initLog = [
+  {time:'06:00', text:'Shift started. Zone B assigned.', zone:'B'},
+  {time:'06:20', text:'Vehicle JV-03 checked out. Fuel at 78%.', zone:'B'},
+  {time:'06:45', text:'Tiger sighting confirmed near waterhole sector 4.', zone:'B'},
+  {time:'07:10', text:'Responded to backup request at north gate.', zone:'A'},
+  {time:'07:30', text:'Returned to Zone B patrol route.', zone:'B'},
+];
+
+// Init
+function init() {
+  buildChecklist();
+  buildCamFeeds();
+  seedChat();
+  seedAlerts();
+  seedLog();
+  updateTime();
+  setInterval(updateTime, 1000);
+  setInterval(updateCams, 6000);
+  setInterval(() => { syncSecs++; document.getElementById('last-sync').textContent = syncSecs+'s'; }, 1000);
+  setInterval(() => { syncSecs = 0; }, 12000);
+  updateShiftTimer();
+  setInterval(updateShiftTimer, 60000);
+  updateFuel();
+  setInterval(updateFuel, 8000);
+}
+
+function updateTime() {
+  document.getElementById('sidebar-time').textContent = new Date().toTimeString().split(' ')[0];
+}
+
+function updateShiftTimer() {
+  const end = new Date(); end.setHours(14,0,0,0);
+  const now = new Date();
+  const diff = Math.max(0, end - now);
+  const h = Math.floor(diff/3600000);
+  const m = Math.floor((diff%3600000)/60000);
+  document.getElementById('shift-remaining').textContent = h+':'+(m<10?'0':'')+m;
+}
+
+function updateFuel() {
+  const cur = parseFloat(document.getElementById('fuel-pct').textContent);
+  const next = Math.max(10, cur - (Math.random()*0.5));
+  const pct = next.toFixed(0)+'%';
+  document.getElementById('fuel-pct').textContent = pct;
+  document.getElementById('fuel-bar').style.width = pct;
+  const bar = document.getElementById('fuel-bar');
+  bar.style.background = next < 25 ? 'var(--red)' : next < 50 ? 'var(--amber)' : 'var(--lime)';
+
+  // Update speed display
+  const speed = (18 + Math.random()*15).toFixed(0);
+  document.getElementById('veh-speed-display').textContent = speed+' km/h · Running';
+}
+
+// Cameras
+const camVehs = [
+  {id:'JV-03', zone:'B', lat:19.0245, lng:72.8545, speed:24},
+  {id:'JV-02', zone:'B', lat:19.0234, lng:72.8512, speed:18},
+  {id:'JV-01', zone:'A', lat:19.0178, lng:72.8478, speed:12},
+  {id:'JV-04', zone:'E', lat:19.0156, lng:72.8534, speed:8},
+];
+
+// Wildlife image pool — same as control room, tuned box positions
+const wildImgs = [
+  { url:'https://images.unsplash.com/photo-1549366021-9f761d450615?w=640&q=80', name:'Bengal Tiger',   label:'TIGER',    bx:25, by:20, bw:50, bh:60 },
+  { url:'https://images.unsplash.com/photo-1564760055775-d63b17a55c44?w=640&q=80', name:'Asian Elephant', label:'ELEPHANT', bx:15, by:15, bw:65, bh:70 },
+  { url:'https://images.unsplash.com/photo-1474511320723-9a56873867b5?w=640&q=80', name:'Spotted Deer',   label:'DEER',     bx:20, by:10, bw:55, bh:75 },
+  { url:'https://images.unsplash.com/photo-1456926631375-92c8ce872def?w=640&q=80', name:'Indian Leopard', label:'LEOPARD',  bx:20, by:15, bw:55, bh:65 },
+  { url:'https://images.unsplash.com/photo-1598439210625-5067c578f3f6?w=640&q=80', name:'Indian Peafowl', label:'PEAFOWL',  bx:30, by:10, bw:40, bh:75 },
+  { url:'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=640&q=80', name:'Bengal Tiger',   label:'TIGER',    bx:20, by:15, bw:55, bh:65 },
+  { url:'https://images.unsplash.com/photo-1551316679-9c6ae9dec224?w=640&q=80', name:'Wild Elephant',  label:'ELEPHANT', bx:10, by:20, bw:70, bh:60 },
+  { url:'https://images.unsplash.com/photo-1508817628294-5a453fa0b8fb?w=640&q=80', name:'Asian Elephant', label:'ELEPHANT', bx:15, by:10, bw:65, bh:75 },
+  { url:'https://images.unsplash.com/photo-1612862853065-a07ea0b66a73?w=640&q=80', name:'Indian Leopard', label:'LEOPARD',  bx:20, by:20, bw:55, bh:60 },
+  { url:'https://images.unsplash.com/photo-1518877593221-1f28583780b4?w=640&q=80', name:'Safari Deer',    label:'DEER',     bx:15, by:15, bw:60, bh:65 },
+  { url:'https://images.unsplash.com/photo-1504173010664-32509107de7f?w=640&q=80', name:'Crested Eagle',  label:'EAGLE',    bx:25, by:10, bw:50, bh:70 },
+  { url:'https://images.unsplash.com/photo-1535941339077-2dd1c7963098?w=640&q=80', name:'Wild Boar',      label:'WILD BOAR',bx:20, by:30, bw:55, bh:50 },
+];
+
+// Start each cam on a different image — spread evenly
+const sCamState = camVehs.map((v, i) => ({
+  imgIdx: (i * Math.floor(wildImgs.length / camVehs.length)) % wildImgs.length,
+  conf: (78 + Math.random()*18).toFixed(0),
+}));
+
+function buildCamFeeds() {
+  const grid = document.getElementById('staff-cam-grid');
+  camVehs.forEach((v, i) => {
+    const img = wildImgs[sCamState[i].imgIdx];
+    const feed = document.createElement('div');
+    feed.className = 'cam-feed';
+    feed.id = 'scam-'+i;
+    feed.onclick = () => expandCam(v, i);
+    feed.innerHTML = `
+      <img id="scam-img-${i}" src="${img.url}"
+        style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(0.72) saturate(0.82) sepia(0.12);transition:opacity 0.5s;">
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,20,8,0.4) 0%,transparent 35%,rgba(8,20,8,0.55) 100%);pointer-events:none;"></div>
+      <div class="cam-scanline"></div>
+      <div class="cam-static" style="opacity:0.04;"></div>
+      <!-- Detection box -->
+      <div id="sdet-${i}" style="
+        position:absolute;
+        border:2px solid #e8c547;
+        box-shadow:0 0 8px rgba(232,197,71,0.45);
+        transition:all 1.8s cubic-bezier(0.25,0.46,0.45,0.94);
+        pointer-events:none;
+        top:${img.by}%; left:${img.bx}%;
+        width:${img.bw}%; height:${img.bh}%;
+      ">
+        <div style="position:absolute;top:-1px;left:-1px;width:8px;height:8px;border-top:2px solid #e8c547;border-left:2px solid #e8c547;"></div>
+        <div style="position:absolute;top:-1px;right:-1px;width:8px;height:8px;border-top:2px solid #e8c547;border-right:2px solid #e8c547;"></div>
+        <div style="position:absolute;bottom:-1px;left:-1px;width:8px;height:8px;border-bottom:2px solid #e8c547;border-left:2px solid #e8c547;"></div>
+        <div style="position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-bottom:2px solid #e8c547;border-right:2px solid #e8c547;"></div>
+        <div id="sdet-lbl-${i}" style="
+          position:absolute;top:-20px;left:0;
+          background:rgba(232,197,71,0.92);color:#080c08;
+          font-family:'Space Mono',monospace;font-size:8px;font-weight:700;
+          padding:2px 5px;letter-spacing:1px;white-space:nowrap;
+        ">${img.label} — ${sCamState[i].conf}%</div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(0,0,0,0.4);">
+          <div id="sdet-bar-${i}" style="height:100%;background:#e8c547;width:${sCamState[i].conf}%;transition:width 1.5s;"></div>
+        </div>
+      </div>
+      <div class="cam-overlay">
+        <div class="cam-top">
+          <div class="cam-id">${v.id} · ZONE ${v.zone}</div>
+          <div class="cam-live-badge"><div class="dot red"></div>LIVE</div>
+        </div>
+        <div class="cam-bottom">
+          <div class="cam-info" id="scam-info-${i}">${v.speed} km/h</div>
+          <div class="cam-gps" id="scam-gps-${i}">${v.lat.toFixed(4)}°N<br>${v.lng.toFixed(4)}°E</div>
+        </div>
+      </div>
+      <div class="signal-lost" id="ssig-${i}">
+        <div class="signal-icon">📡</div>
+        <div class="signal-txt">SIGNAL LOST</div>
+      </div>
+    `;
+    grid.appendChild(feed);
+  });
+}
+
+function updateCams() {
+  camVehs.forEach((v, i) => {
+    v.lat += (Math.random()-0.5)*0.0008;
+    v.lng += (Math.random()-0.5)*0.0008;
+    v.speed = Math.max(5, Math.min(32, v.speed + (Math.random()-0.5)*4));
+    const gps = document.getElementById('scam-gps-'+i);
+    const info = document.getElementById('scam-info-'+i);
+    if (gps) gps.innerHTML = v.lat.toFixed(4)+'°N<br>'+v.lng.toFixed(4)+'°E';
+    if (info) info.innerHTML = 'ZONE '+v.zone+'<br>'+v.speed.toFixed(0)+' km/h';
+
+    const signalEl = document.getElementById('ssig-'+i);
+    if (signalEl && signalEl.classList.contains('show')) return;
+
+    // Cycle image — step by at least 2 so adjacent feeds stay different
+    if (Math.random() > 0.45) {
+      const step = 1 + Math.floor(Math.random()*2);
+      sCamState[i].imgIdx = (sCamState[i].imgIdx + step) % wildImgs.length;
+      const newImg = wildImgs[sCamState[i].imgIdx];
+      const imgEl = document.getElementById('scam-img-'+i);
+      if (imgEl) {
+        imgEl.style.transition = 'opacity 0.5s';
+        imgEl.style.opacity = '0';
+        setTimeout(() => { imgEl.src = newImg.url; imgEl.style.opacity = '1'; }, 450);
+      }
+    }
+
+    const img = wildImgs[sCamState[i].imgIdx];
+    const conf = (74 + Math.random()*22).toFixed(0);
+    sCamState[i].conf = conf;
+
+    // Small jitter ±5% so box stays on the animal
+    const jx = (Math.random()-0.5)*5;
+    const jy = (Math.random()-0.5)*5;
+    const detTop  = Math.max(5, Math.min(60, img.by + jy));
+    const detLeft = Math.max(5, Math.min(60, img.bx + jx));
+    const detW    = Math.max(20, Math.min(70, img.bw + (Math.random()-0.5)*4));
+    const detH    = Math.max(20, Math.min(70, img.bh + (Math.random()-0.5)*4));
+
+    const det = document.getElementById('sdet-'+i);
+    const lbl = document.getElementById('sdet-lbl-'+i);
+    const bar = document.getElementById('sdet-bar-'+i);
+    if (det) { det.style.top=detTop+'%'; det.style.left=detLeft+'%'; det.style.width=detW+'%'; det.style.height=detH+'%'; }
+
+    const color = conf >= 85 ? '#7ab648' : conf >= 72 ? '#e8c547' : '#e8872a';
+    if (det)  { det.style.borderColor=color; det.style.boxShadow=`0 0 8px ${color}55`; }
+    if (lbl)  { lbl.textContent=img.label+' — '+conf+'%'; lbl.style.background=color; }
+    if (bar)  { bar.style.width=conf+'%'; bar.style.background=color; }
+  });
+
+  if (Math.random() > 0.85) {
+    const idx = Math.floor(Math.random()*camVehs.length);
+    const el = document.getElementById('ssig-'+idx);
+    if (el) { el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 3200); }
+  }
+}
+
+// Expand cam — show modal with full image
+function expandCam(v, i) {
+  const img = wildImgs[sCamState[i].imgIdx];
+  const conf = sCamState[i].conf;
+
+  // Build or reuse modal
+  let modal = document.getElementById('cam-expand-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cam-expand-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);backdrop-filter:blur(8px);z-index:300;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = (e) => { if(e.target===modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+    <div style="position:relative;width:75vw;max-height:80vh;border:1px solid var(--amber);overflow:hidden;">
+      <img src="${img.url}" style="width:100%;height:100%;object-fit:cover;filter:brightness(0.7) saturate(0.85) sepia(0.1);display:block;max-height:75vh;">
+      <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,20,8,0.5) 0%,transparent 30%,rgba(8,20,8,0.6) 100%);"></div>
+      <!-- Big detection box -->
+      <div style="position:absolute;border:2px solid ${conf>=85?'#7ab648':conf>=70?'#e8c547':'#e8872a'};box-shadow:0 0 16px rgba(232,197,71,0.4);
+        top:${Math.max(8,img.by-5)}%;left:${Math.max(8,img.bx-5)}%;width:${Math.min(60,img.bw+8)}%;height:${Math.min(60,img.bh+8)}%;transition:all 0.5s;pointer-events:none;">
+        <div style="position:absolute;top:-24px;left:0;background:${conf>=85?'#7ab648':conf>=70?'#e8c547':'#e8872a'};color:#080c08;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;letter-spacing:2px;">
+          ${img.name.toUpperCase()} — ${conf}% CONFIDENCE
+        </div>
+      </div>
+      <!-- HUD -->
+      <div style="position:absolute;top:14px;left:14px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;color:var(--amber);">${v.id} · ZONE ${v.zone}</div>
+      <div style="position:absolute;top:14px;right:14px;display:flex;align-items:center;gap:6px;font-family:'Space Mono',monospace;font-size:10px;color:var(--red);">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink 0.8s infinite;"></div>LIVE
+      </div>
+      <div style="position:absolute;bottom:14px;left:14px;font-family:'Space Mono',monospace;font-size:9px;color:rgba(122,182,72,0.9);">
+        ${v.lat.toFixed(4)}°N ${v.lng.toFixed(4)}°E · ${v.speed.toFixed(0)} km/h
+      </div>
+      <button onclick="document.getElementById('cam-expand-modal').remove()"
+        style="position:absolute;bottom:14px;right:14px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);color:var(--muted);font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;padding:6px 14px;cursor:pointer;">
+        ✕ CLOSE
+      </button>
+    </div>
+  `;
+}
+
+// Checklist
+function buildChecklist() {
+  const el = document.getElementById('checklist-items');
+  checklistItems.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'check-item';
+    div.id = 'chk-'+i;
+    div.onclick = () => toggleCheck(i);
+    div.innerHTML = `
+      <div class="check-box" id="chkbox-${i}"></div>
+      <div class="check-label" id="chklbl-${i}">${item}</div>
+      <div class="check-time" id="chktm-${i}">—</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function toggleCheck(i) {
+  checklistState[i] = !checklistState[i];
+  const box = document.getElementById('chkbox-'+i);
+  const lbl = document.getElementById('chklbl-'+i);
+  const tm = document.getElementById('chktm-'+i);
+  if (checklistState[i]) {
+    box.classList.add('checked'); box.textContent = '✓';
+    lbl.classList.add('done');
+    const now = new Date().toTimeString().substr(0,5);
+    tm.textContent = now;
+    addLogEntry(now, 'Patrol: '+checklistItems[i], 'B');
+  } else {
+    box.classList.remove('checked'); box.textContent = '';
+    lbl.classList.remove('done');
+    tm.textContent = '—';
+  }
+  updatePatrolProgress();
+}
+
+function updatePatrolProgress() {
+  const done = checklistState.filter(Boolean).length;
+  const pct = Math.round((done/checklistItems.length)*100);
+  document.getElementById('patrol-bar').style.width = pct+'%';
+  document.getElementById('patrol-pct').textContent = pct+'%';
+  document.getElementById('patrol-progress-badge').textContent = done+'/'+checklistItems.length;
+  if (pct >= 100) document.getElementById('patrol-bar').style.background = 'var(--lime)';
+  else if (pct >= 50) document.getElementById('patrol-bar').style.background = 'var(--amber)';
+}
+
+// Sighting Logger
+function toggleBchip(el, val) {
+  document.querySelectorAll('.bchip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function logSighting() {
+  const species = document.getElementById('sight-species').value;
+  const zone = document.getElementById('sight-zone').value;
+  const count = document.getElementById('sight-count').value;
+  const behaviour = document.querySelector('.bchip.active')?.textContent || 'CALM';
+  if (!species) { showToast('⚠ Select a species first'); return; }
+
+  mySightingsCount++;
+  document.getElementById('my-sightings-count').textContent = mySightingsCount+' LOGGED';
+
+  const emoji = species.split(' ')[0];
+  const name = species.split(' ').slice(1).join(' ');
+  const now = new Date().toTimeString().substr(0,5);
+
+  const list = document.getElementById('my-sightings-list');
+  const entry = document.createElement('div');
+  entry.className = 'recent-sighting slide-in';
+  entry.innerHTML = `
+    <div class="rs-emoji">${emoji}</div>
+    <div class="rs-info">
+      <div class="rs-name">${name} ×${count}</div>
+      <div class="rs-meta">Zone ${zone} · ${behaviour} · ${now}</div>
+    </div>
+    <div class="synced">✓ SYNCED</div>
+  `;
+  list.insertBefore(entry, list.firstChild);
+  if (list.children.length > 5) list.removeChild(list.lastChild);
+
+  addLogEntry(now, 'Sighting logged: '+name+' ×'+count+' ('+behaviour+')', zone);
+
+  // Reset form
+  document.getElementById('sight-species').value = '';
+  document.getElementById('sight-count').value = '1';
+  document.getElementById('sight-notes').value = '';
+  document.querySelectorAll('.bchip').forEach(c => c.classList.remove('active'));
+  document.querySelector('.bchip').classList.add('active');
+
+  showToast('✓ SIGHTING LOGGED & SYNCED TO FIREBASE');
+}
+
+// Chat
+function seedChat() {
+  const msgs = document.getElementById('chat-messages');
+  initMessages.forEach(m => {
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble '+(m.sent?'bubble-sent':'bubble-recv');
+    bubble.innerHTML = `<div class="bubble-meta">${m.name} · ${m.time}</div>${m.text}`;
+    msgs.appendChild(bubble);
+  });
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const now = new Date().toTimeString().substr(0,5);
+  const msgs = document.getElementById('chat-messages');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble bubble-sent slide-in';
+  bubble.innerHTML = `<div class="bubble-meta">RNG-04 · Arjun · ${now}</div>${text}`;
+  msgs.appendChild(bubble);
+  msgs.scrollTop = msgs.scrollHeight;
+  input.value = '';
+  addLogEntry(now, 'Radio comms sent: "'+text.substr(0,40)+(text.length>40?'...':'')+'"', 'B');
+}
+
+// Alerts
+function seedAlerts() {
+  initAlerts.forEach(a => addAlert(a.sev, a.text, a.time));
+}
+
+function addAlert(sev, text, time) {
+  const list = document.getElementById('my-alerts-list');
+  const item = document.createElement('div');
+  item.className = 'alert-entry '+sev+' slide-in';
+  item.innerHTML = `
+    <div class="alert-txt">${text}</div>
+    <div class="alert-footer">
+      <span class="alert-time-s">${time}</span>
+      <div class="alert-actions">
+        <button class="alert-btn btn-ack" onclick="ackAlert(this)">ACK</button>
+        <button class="alert-btn btn-esc" onclick="escAlert(this)">ESCALATE</button>
+      </div>
+    </div>
+  `;
+  list.insertBefore(item, list.firstChild);
+  updateAlertBadge();
+}
+
+function ackAlert(btn) {
+  btn.closest('.alert-entry').classList.add('acked');
+  btn.textContent = '✓ ACKED';
+  btn.disabled = true;
+  myAlertCount = Math.max(0, myAlertCount-1);
+  updateAlertBadge();
+  addLogEntry(new Date().toTimeString().substr(0,5), 'Alert acknowledged', 'B');
+}
+function escAlert(btn) {
+  btn.textContent = '↑ ESCALATED';
+  btn.style.color = 'var(--red)';
+  btn.disabled = true;
+  addLogEntry(new Date().toTimeString().substr(0,5), 'Alert escalated to control room', 'B');
+}
+function updateAlertBadge() {
+  document.getElementById('my-alert-count').textContent = myAlertCount;
+}
+
+// Shift Log
+function seedLog() {
+  initLog.forEach(e => addLogEntry(e.time, e.text, e.zone));
+}
+
+function addLogEntry(time, text, zone) {
+  const log = document.getElementById('shift-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry slide-in';
+  entry.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-text">${text}</span>
+    <span class="log-zone">${zone}</span>
+  `;
+  log.insertBefore(entry, log.firstChild);
+  if (log.children.length > 30) log.removeChild(log.lastChild);
+  shiftLogEntries.unshift({time, text, zone});
+}
+
+// Quick actions
+function quickLog() {
+  document.getElementById('sight-species').focus();
+  document.querySelector('.tools-grid').scrollIntoView({behavior:'smooth'});
+  showToast('📋 SCROLL DOWN TO LOG SIGHTING');
+}
+
+function requestBackup() {
+  const now = new Date().toTimeString().substr(0,5);
+  addLogEntry(now, 'Backup requested for Zone B', 'B');
+  showToast('📡 BACKUP REQUEST SENT TO CONTROL ROOM');
+}
+
+function markClear() {
+  const now = new Date().toTimeString().substr(0,5);
+  addLogEntry(now, 'Zone B marked CLEAR by Ranger Arjun', 'B');
+  showToast('✓ ZONE B MARKED CLEAR');
+}
+
+function submitPatrol() {
+  const done = checklistState.filter(Boolean).length;
+  const now = new Date().toTimeString().substr(0,5);
+  addLogEntry(now, 'Patrol report submitted — '+done+'/'+checklistItems.length+' items complete', 'B');
+  showToast('✓ PATROL REPORT SUBMITTED');
+}
+
+function exportLog() {
+  showToast('📄 SHIFT LOG EXPORTED ('+shiftLogEntries.length+' entries)');
+}
+
+function sendRadio() {
+  document.getElementById('chat-input').focus();
+  showToast('📻 RADIO CHANNEL OPEN');
+}
+
+function openMap() {
+  window.location.href = 'control.html';
+}
+
+// FAB
+function toggleFAB() {
+  fabOpen = !fabOpen;
+  document.getElementById('fab-radial').classList.toggle('open', fabOpen);
+  document.getElementById('fab-main').textContent = fabOpen ? '✕' : '⚡';
+}
+
+// SOS
+let sosTimerInterval = null;
+function triggerSOS() {
+  fabOpen = false;
+  document.getElementById('fab-radial').classList.remove('open');
+  document.getElementById('fab-main').textContent = '⚡';
+  const modal = document.getElementById('sos-modal');
+  modal.classList.add('open');
+  let t = 10;
+  document.getElementById('sos-timer').textContent = t;
+  sosTimerInterval = setInterval(() => {
+    t--;
+    document.getElementById('sos-timer').textContent = t;
+    if (t <= 0) { clearInterval(sosTimerInterval); modal.classList.remove('open'); addLogEntry(new Date().toTimeString().substr(0,5), 'SOS signal broadcast — auto cancelled', 'B'); }
+  }, 1000);
+  addLogEntry(new Date().toTimeString().substr(0,5), 'SOS EMERGENCY ACTIVATED', 'B');
+}
+function cancelSOS() {
+  clearInterval(sosTimerInterval);
+  document.getElementById('sos-modal').classList.remove('open');
+  addLogEntry(new Date().toTimeString().substr(0,5), 'SOS cancelled by Ranger Arjun', 'B');
+  showToast('SOS CANCELLED');
+}
+
+// Toast
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+init();
+</script>
+</body>
+</html>

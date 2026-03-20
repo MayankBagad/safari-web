@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WildTrack — Safari Booking</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0c0a;
+    --deep: #0f1a10;
+    --forest: #1a2e1c;
+    --green: #2d5a30;
+    --lime: #7ab648;
+    --gold: #c8a84b;
+    --amber: #e8c547;
+    --cream: #f0ead6;
+    --muted: #8a9688;
+    --danger: #c0392b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--cream);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 60px;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 60% at 60% 40%, rgba(45,90,48,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(200,168,75,0.15) 0%, transparent 50%),
+      linear-gradient(180deg, #0a0c0a 0%, #0f1a10 40%, #0a0c0a 100%);
+  }
+
+  /* Animated circles */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    animation: drift 8s ease-in-out infinite alternate;
+  }
+  .orb-1 { width: 500px; height: 500px; background: rgba(45,90,48,0.25); top: -100px; right: -100px; animation-delay: 0s; }
+  .orb-2 { width: 300px; height: 300px; background: rgba(200,168,75,0.15); bottom: 100px; left: 200px; animation-delay: -3s; }
+  .orb-3 { width: 200px; height: 200px; background: rgba(122,182,72,0.1); top: 200px; left: 100px; animation-delay: -5s; }
+
+  @keyframes drift {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(30px, -20px) scale(1.05); }
+  }
+
+  .hero-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--lime);
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.8s forwards 0.3s;
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(80px, 12vw, 160px);
+    line-height: 0.9;
+    letter-spacing: -2px;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.8s forwards 0.5s;
+  }
+
+  .hero-title span { color: var(--amber); }
+
+  .hero-sub {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 400px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+    opacity: 0;
+    animation: fadeUp 0.8s forwards 0.7s;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 16px;
+    opacity: 0;
+    animation: fadeUp 0.8s forwards 0.9s;
+  }
+
+  .btn-primary {
+    background: var(--amber);
+    color: var(--black);
+    border: none;
+    padding: 16px 36px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+
+  .btn-primary:hover { background: var(--lime); transform: translateY(-2px); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--cream);
+    border: 1px solid rgba(240,234,214,0.3);
+    padding: 16px 36px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-outline:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* Live status bar */
+  .status-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 60px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 3px;
+    color: var(--cream);
+  }
+
+  .logo span { color: var(--lime); }
+
+  .live-indicators {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .live-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+
+  .live-dot::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--lime);
+    animation: pulse 2s infinite;
+  }
+
+  .live-dot.amber::before { background: var(--amber); }
+  .live-dot.red::before { background: var(--danger); animation: pulse 0.8s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Scroll indicator */
+  .scroll-hint {
+    position: absolute;
+    bottom: 30px;
+    right: 60px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    writing-mode: vertical-rl;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    animation: fadeUp 1s forwards 1.2s;
+  }
+
+  .scroll-hint::after {
+    content: '';
+    width: 1px;
+    height: 60px;
+    background: linear-gradient(var(--amber), transparent);
+    animation: drawLine 1.5s ease infinite;
+  }
+
+  @keyframes drawLine {
+    0% { transform: scaleY(0); transform-origin: top; }
+    50% { transform: scaleY(1); transform-origin: top; }
+    100% { transform: scaleY(1); opacity: 0; }
+  }
+
+  /* Zone selector */
+  .section {
+    padding: 100px 60px;
+    position: relative;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--lime);
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(40px, 5vw, 72px);
+    letter-spacing: 1px;
+    margin-bottom: 60px;
+    line-height: 1;
+  }
+
+  .zones-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin-bottom: 60px;
+  }
+
+  .zone-card {
+    background: var(--forest);
+    padding: 32px;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .zone-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(122,182,72,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .zone-card:hover::before, .zone-card.selected::before { opacity: 1; }
+  .zone-card:hover, .zone-card.selected {
+    border-color: var(--amber);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+
+  .zone-card.selected { border-color: var(--lime); }
+  .zone-card.full { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+  .zone-id {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--green);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .zone-name {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .zone-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .zone-stats {
+    display: flex;
+    gap: 20px;
+  }
+
+  .zone-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .zone-stat-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    color: var(--amber);
+  }
+
+  .zone-stat-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .zone-badge {
+    position: absolute;
+    top: 16px; right: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+  }
+
+  .badge-open { background: rgba(122,182,72,0.2); color: var(--lime); }
+  .badge-busy { background: rgba(200,168,75,0.2); color: var(--gold); }
+  .badge-full { background: rgba(192,57,43,0.2); color: var(--danger); }
+
+  /* Animal sighting forecast */
+  .forecast-strip {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 60px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .forecast-strip::-webkit-scrollbar { height: 2px; }
+  .forecast-strip::-webkit-scrollbar-track { background: var(--forest); }
+  .forecast-strip::-webkit-scrollbar-thumb { background: var(--green); }
+
+  .animal-chip {
+    background: var(--forest);
+    border: 1px solid var(--green);
+    padding: 12px 20px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .animal-chip:hover, .animal-chip.active {
+    background: var(--green);
+    border-color: var(--lime);
+  }
+
+  .animal-emoji { font-size: 20px; }
+
+  .animal-info { display: flex; flex-direction: column; gap: 2px; }
+
+  .animal-name {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .animal-prob {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--lime);
+  }
+
+  /* Booking form */
+  .booking-section {
+    background: var(--deep);
+    padding: 80px 60px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .booking-grid {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 80px;
+    align-items: start;
+  }
+
+  .form-group {
+    margin-bottom: 28px;
+  }
+
+  .form-label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .form-input, .form-select {
+    width: 100%;
+    background: var(--forest);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--cream);
+    padding: 16px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  .form-input:focus, .form-select:focus {
+    border-color: var(--amber);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Time slots */
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .slot {
+    background: var(--forest);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .slot:hover:not(.slot-full) {
+    border-color: var(--amber);
+    color: var(--cream);
+  }
+
+  .slot.selected {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: var(--black);
+    font-weight: 700;
+  }
+
+  .slot.slot-full {
+    opacity: 0.3;
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+
+  .slot-capacity {
+    display: block;
+    font-size: 8px;
+    margin-top: 3px;
+    letter-spacing: 1px;
+  }
+
+  /* Order summary */
+  .order-card {
+    background: var(--forest);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 36px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .order-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .order-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 14px;
+  }
+
+  .order-row:last-child { border-bottom: none; }
+
+  .order-key { color: var(--muted); }
+  .order-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    text-align: right;
+    color: var(--cream);
+  }
+
+  .order-total {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .total-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .total-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--amber);
+    letter-spacing: 1px;
+  }
+
+  .pay-btn {
+    width: 100%;
+    background: var(--amber);
+    color: var(--black);
+    border: none;
+    padding: 20px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 24px;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  }
+
+  .pay-btn:hover {
+    background: var(--lime);
+    transform: translateY(-2px);
+  }
+
+  .pay-btn:disabled {
+    background: var(--green);
+    color: var(--muted);
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Live dashboard strip */
+  .dashboard-strip {
+    background: var(--black);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 60px;
+    display: flex;
+    gap: 60px;
+    overflow-x: auto;
+  }
+
+  .dash-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .dash-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 1px;
+    color: var(--amber);
+  }
+
+  .dash-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Confirmation modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .modal {
+    background: var(--deep);
+    border: 1px solid var(--lime);
+    padding: 60px;
+    max-width: 540px;
+    width: 90%;
+    transform: translateY(30px);
+    transition: transform 0.3s;
+    position: relative;
+  }
+
+  .modal-overlay.active .modal { transform: translateY(0); }
+
+  .modal-icon {
+    font-size: 60px;
+    margin-bottom: 20px;
+    display: block;
+    animation: bounceIn 0.5s ease 0.3s both;
+  }
+
+  @keyframes bounceIn {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 2px;
+    color: var(--lime);
+    margin-bottom: 8px;
+  }
+
+  .modal-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  .ticket-code {
+    background: var(--forest);
+    border: 1px dashed var(--amber);
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .ticket-code-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .ticket-code-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 6px;
+    color: var(--amber);
+  }
+
+  .qr-placeholder {
+    width: 120px;
+    height: 120px;
+    background: var(--cream);
+    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .qr-inner {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    padding: 10px;
+    width: 100%;
+    height: 100%;
+  }
+
+  .qr-cell {
+    background: var(--black);
+    border-radius: 1px;
+  }
+
+  .qr-cell.white { background: var(--cream); }
+
+  .modal-close {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--muted);
+    padding: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal-close:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* Weather widget */
+  .weather-widget {
+    background: var(--forest);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .weather-main {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .weather-icon { font-size: 36px; }
+
+  .weather-temp {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    color: var(--amber);
+    line-height: 1;
+  }
+
+  .weather-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .weather-details {
+    display: flex;
+    gap: 24px;
+  }
+
+  .weather-detail {
+    text-align: center;
+  }
+
+  .weather-detail-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: var(--cream);
+  }
+
+  .weather-detail-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Ticker */
+  .ticker {
+    background: var(--green);
+    padding: 10px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .ticker-inner {
+    display: inline-block;
+    animation: ticker 30s linear infinite;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--cream);
+  }
+
+  @keyframes ticker {
+    from { transform: translateX(100vw); }
+    to { transform: translateX(-100%); }
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .hero { padding: 30px; }
+    .status-bar { padding: 16px 30px; }
+    .section { padding: 60px 30px; }
+    .booking-section { padding: 60px 30px; }
+    .booking-grid { grid-template-columns: 1fr; gap: 40px; }
+    .zones-grid { grid-template-columns: 1fr; }
+    .slot-grid { grid-template-columns: repeat(3, 1fr); }
+    .dashboard-strip { padding: 20px 30px; }
+    .live-indicators { display: none; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    margin: 0 60px;
+  }
+
+  /* Stepper */
+  .stepper {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 60px;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+
+  .step-num {
+    width: 32px; height: 32px;
+    border: 1px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: all 0.3s;
+  }
+
+  .step.active .step-num {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: var(--black);
+  }
+
+  .step.done .step-num {
+    background: var(--lime);
+    border-color: var(--lime);
+    color: var(--black);
+  }
+
+  .step.active { color: var(--cream); }
+  .step.done { color: var(--lime); }
+
+  .step-line {
+    flex: 1;
+    height: 1px;
+    background: var(--green);
+    max-width: 60px;
+    margin: 0 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Ticker -->
+<div class="ticker">
+  <span class="ticker-inner">
+    🐯 TIGER SPOTTED — ZONE B · 14:32 &nbsp;&nbsp;|&nbsp;&nbsp; 🐘 ELEPHANT HERD CROSSING — ZONE A · 14:18 &nbsp;&nbsp;|&nbsp;&nbsp; ⚠️ ZONE C VEHICLE LIMIT REACHED &nbsp;&nbsp;|&nbsp;&nbsp; 🌡️ TEMPERATURE: 28°C · HUMIDITY: 64% &nbsp;&nbsp;|&nbsp;&nbsp; 🎫 47 TICKETS BOOKED TODAY &nbsp;&nbsp;|&nbsp;&nbsp; 🦌 DEER SIGHTED — ZONE D · 13:55 &nbsp;&nbsp;|&nbsp;&nbsp; 🐆 LEOPARD ALERT — ZONE B · 13:40 &nbsp;&nbsp;|&nbsp;&nbsp; ✅ ZONES A, B, D ACCEPTING BOOKINGS
+  </span>
+</div>
+
+<!-- Nav -->
+<div class="status-bar">
+  <div class="logo">WILD<span>TRACK</span></div>
+  <div class="live-indicators">
+    <div class="live-dot">4 VEHICLES ACTIVE</div>
+    <div class="live-dot amber">ZONE C AT CAPACITY</div>
+    <div class="live-dot">SYSTEM ONLINE</div>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="hero-tag" style="position:relative;z-index:1">Smart Safari Management System — Team Electabuzz</div>
+  <div class="hero-title" style="position:relative;z-index:1">BOOK YOUR<br><span>SAFARI</span></div>
+  <div class="hero-sub" style="position:relative;z-index:1">Real-time zone tracking, live animal sighting data, and intelligent slot allocation — all in one place.</div>
+  <div class="hero-cta" style="position:relative;z-index:1">
+    <button class="btn-primary" onclick="document.getElementById('booking').scrollIntoView({behavior:'smooth'})">Book Now</button>
+    <button class="btn-outline" onclick="document.getElementById('zones').scrollIntoView({behavior:'smooth'})">View Zones</button>
+  </div>
+  <div class="scroll-hint">SCROLL</div>
+</div>
+
+<!-- Dashboard Strip -->
+<div class="dashboard-strip">
+  <div class="dash-metric">
+    <div class="dash-val" id="vehicles-count">4</div>
+    <div class="dash-label">Vehicles Active</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-val" id="sightings-count">12</div>
+    <div class="dash-label">Sightings Today</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-val" id="tickets-count">47</div>
+    <div class="dash-label">Tickets Booked</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-val">28°C</div>
+    <div class="dash-label">Temperature</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-val">64%</div>
+    <div class="dash-label">Humidity</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-val" style="color:var(--lime)">LOW</div>
+    <div class="dash-label">Fire Risk</div>
+  </div>
+  <div class="dash-metric">
+    <div class="dash-val">3/4</div>
+    <div class="dash-label">Zones Open</div>
+  </div>
+</div>
+
+<!-- Zone Selection -->
+<div class="section" id="zones">
+  <div class="section-label">Step 01 — Choose Your Zone</div>
+  <div class="section-title">SELECT A<br>SAFARI ZONE</div>
+
+  <!-- Animal forecast -->
+  <div style="margin-bottom: 20px; font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase;">Today's Animal Sighting Probability</div>
+  <div class="forecast-strip" id="animal-strip">
+    <div class="animal-chip active" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🐯</span>
+      <div class="animal-info">
+        <div class="animal-name">Bengal Tiger</div>
+        <div class="animal-prob">87% — Zone B</div>
+      </div>
+    </div>
+    <div class="animal-chip" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🐘</span>
+      <div class="animal-info">
+        <div class="animal-name">Asian Elephant</div>
+        <div class="animal-prob">74% — Zone A</div>
+      </div>
+    </div>
+    <div class="animal-chip" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🦌</span>
+      <div class="animal-info">
+        <div class="animal-name">Spotted Deer</div>
+        <div class="animal-prob">93% — Zone D</div>
+      </div>
+    </div>
+    <div class="animal-chip" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🐆</span>
+      <div class="animal-info">
+        <div class="animal-name">Indian Leopard</div>
+        <div class="animal-prob">61% — Zone B</div>
+      </div>
+    </div>
+    <div class="animal-chip" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🦜</span>
+      <div class="animal-info">
+        <div class="animal-name">Indian Peafowl</div>
+        <div class="animal-prob">99% — All Zones</div>
+      </div>
+    </div>
+    <div class="animal-chip" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🐗</span>
+      <div class="animal-info">
+        <div class="animal-name">Wild Boar</div>
+        <div class="animal-prob">55% — Zone C</div>
+      </div>
+    </div>
+    <div class="animal-chip" onclick="toggleAnimal(this)">
+      <span class="animal-emoji">🐊</span>
+      <div class="animal-info">
+        <div class="animal-name">Marsh Crocodile</div>
+        <div class="animal-prob">40% — Zone A</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="zones-grid" id="zones-grid">
+    <div class="zone-card" onclick="selectZone(this, 'A')">
+      <div class="zone-badge badge-open">OPEN</div>
+      <div class="zone-id">A</div>
+      <div class="zone-name">Riverside Corridor</div>
+      <div class="zone-desc">Dense riverine forest with water bodies. High elephant and crocodile activity near dawn.</div>
+      <div class="zone-stats">
+        <div class="zone-stat">
+          <div class="zone-stat-val">2/6</div>
+          <div class="zone-stat-label">Vehicles</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">3</div>
+          <div class="zone-stat-label">Sightings</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">₹800</div>
+          <div class="zone-stat-label">Per Head</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone-card" onclick="selectZone(this, 'B')">
+      <div class="zone-badge badge-busy">BUSY</div>
+      <div class="zone-id">B</div>
+      <div class="zone-name">Tiger Territory</div>
+      <div class="zone-desc">Prime big cat habitat. Highest tiger and leopard sighting probability. Entry restricted post 3PM.</div>
+      <div class="zone-stats">
+        <div class="zone-stat">
+          <div class="zone-stat-val">5/6</div>
+          <div class="zone-stat-label">Vehicles</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">7</div>
+          <div class="zone-stat-label">Sightings</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">₹1200</div>
+          <div class="zone-stat-label">Per Head</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone-card full">
+      <div class="zone-badge badge-full">FULL</div>
+      <div class="zone-id">C</div>
+      <div class="zone-name">Grassland Flats</div>
+      <div class="zone-desc">Open grassland with good visibility. Popular for bird watching and deer herds.</div>
+      <div class="zone-stats">
+        <div class="zone-stat">
+          <div class="zone-stat-val">6/6</div>
+          <div class="zone-stat-label">Vehicles</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">5</div>
+          <div class="zone-stat-label">Sightings</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">₹600</div>
+          <div class="zone-stat-label">Per Head</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone-card" onclick="selectZone(this, 'D')">
+      <div class="zone-badge badge-open">OPEN</div>
+      <div class="zone-id">D</div>
+      <div class="zone-name">Deep Forest Trail</div>
+      <div class="zone-desc">Thick canopy trail. Ideal for deer, wild boar, and nocturnal animal activity at dusk.</div>
+      <div class="zone-stats">
+        <div class="zone-stat">
+          <div class="zone-stat-val">1/6</div>
+          <div class="zone-stat-label">Vehicles</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">2</div>
+          <div class="zone-stat-label">Sightings</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">₹700</div>
+          <div class="zone-stat-label">Per Head</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="zone-card" onclick="selectZone(this, 'E')">
+      <div class="zone-badge badge-open">OPEN</div>
+      <div class="zone-id">E</div>
+      <div class="zone-name">Hilltop Viewpoint</div>
+      <div class="zone-desc">Elevated terrain with panoramic views. Best for photography and spotting animals at waterholes.</div>
+      <div class="zone-stats">
+        <div class="zone-stat">
+          <div class="zone-stat-val">0/4</div>
+          <div class="zone-stat-label">Vehicles</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">1</div>
+          <div class="zone-stat-label">Sightings</div>
+        </div>
+        <div class="zone-stat">
+          <div class="zone-stat-val">₹900</div>
+          <div class="zone-stat-label">Per Head</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- Booking Form -->
+<div class="booking-section" id="booking">
+  <div class="section-label">Step 02 — Complete Your Booking</div>
+  <div class="section-title" style="margin-bottom: 40px;">RESERVE YOUR<br>SLOT</div>
+
+  <div class="stepper">
+    <div class="step done" id="step-zone">
+      <div class="step-num">✓</div>
+      <span>ZONE</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step active" id="step-details">
+      <div class="step-num">2</div>
+      <span>DETAILS</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-pay">
+      <div class="step-num">3</div>
+      <span>PAYMENT</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step-confirm">
+      <div class="step-num">4</div>
+      <span>CONFIRM</span>
+    </div>
+  </div>
+
+  <div class="booking-grid">
+    <div>
+      <!-- Weather -->
+      <div class="weather-widget">
+        <div class="weather-main">
+          <div class="weather-icon">⛅</div>
+          <div>
+            <div class="weather-temp">28°</div>
+            <div class="weather-desc">Partly Cloudy · Good visibility</div>
+          </div>
+        </div>
+        <div class="weather-details">
+          <div class="weather-detail">
+            <div class="weather-detail-val">64%</div>
+            <div class="weather-detail-label">Humidity</div>
+          </div>
+          <div class="weather-detail">
+            <div class="weather-detail-val">12km/h</div>
+            <div class="weather-detail-label">Wind</div>
+          </div>
+          <div class="weather-detail">
+            <div class="weather-detail-val">LOW</div>
+            <div class="weather-detail-label">Fire Risk</div>
+          </div>
+          <div class="weather-detail">
+            <div class="weather-detail-val">GOOD</div>
+            <div class="weather-detail-label">Safari Cond.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-input" type="text" placeholder="Mayank Bagad" id="input-name" oninput="updateSummary()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Mobile Number</label>
+          <input class="form-input" type="tel" placeholder="+91 98765 43210" id="input-phone" oninput="updateSummary()">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input class="form-input" type="date" id="input-date" oninput="updateSummary()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Number of Visitors</label>
+          <select class="form-select" id="input-visitors" onchange="updateSummary()">
+            <option value="">Select</option>
+            <option value="1">1 Person — ₹800</option>
+            <option value="2">2 People — ₹1,600</option>
+            <option value="3">3 People — ₹2,400</option>
+            <option value="4">4 People — ₹3,200</option>
+            <option value="5">5 People — ₹4,000</option>
+            <option value="6">6 People — ₹4,800</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Select Time Slot</label>
+        <div class="slot-grid">
+          <div class="slot" onclick="selectSlot(this, '06:00')">
+            06:00 AM
+            <span class="slot-capacity">4 LEFT</span>
+          </div>
+          <div class="slot" onclick="selectSlot(this, '07:30')">
+            07:30 AM
+            <span class="slot-capacity">2 LEFT</span>
+          </div>
+          <div class="slot slot-full">
+            09:00 AM
+            <span class="slot-capacity">FULL</span>
+          </div>
+          <div class="slot" onclick="selectSlot(this, '10:30')">
+            10:30 AM
+            <span class="slot-capacity">5 LEFT</span>
+          </div>
+          <div class="slot" onclick="selectSlot(this, '13:00')">
+            01:00 PM
+            <span class="slot-capacity">6 LEFT</span>
+          </div>
+          <div class="slot slot-full">
+            14:30 PM
+            <span class="slot-capacity">FULL</span>
+          </div>
+          <div class="slot" onclick="selectSlot(this, '16:00')">
+            04:00 PM
+            <span class="slot-capacity">3 LEFT</span>
+          </div>
+          <div class="slot" onclick="selectSlot(this, '17:30')">
+            05:30 PM
+            <span class="slot-capacity">6 LEFT</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Vehicle Type</label>
+        <select class="form-select" id="input-vehicle" onchange="updateSummary()">
+          <option value="">Select vehicle</option>
+          <option value="jeep">Open Jeep (4 seater) — Assigned</option>
+          <option value="canter">Canter (20 seater) — Assigned</option>
+          <option value="private">Private Vehicle — Own</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Special Requirements</label>
+        <input class="form-input" type="text" placeholder="Wheelchair accessible, photography permit, etc." id="input-special">
+      </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div>
+      <div class="order-card">
+        <div class="order-title">ORDER SUMMARY</div>
+
+        <div class="order-row">
+          <div class="order-key">Zone</div>
+          <div class="order-val" id="summary-zone">— Not selected</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Date</div>
+          <div class="order-val" id="summary-date">—</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Time Slot</div>
+          <div class="order-val" id="summary-slot">— Not selected</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Visitors</div>
+          <div class="order-val" id="summary-visitors">—</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Vehicle</div>
+          <div class="order-val" id="summary-vehicle">—</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Entry Fee</div>
+          <div class="order-val" id="summary-fee">₹0</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Guide Fee</div>
+          <div class="order-val">₹200</div>
+        </div>
+        <div class="order-row">
+          <div class="order-key">Platform Fee</div>
+          <div class="order-val">₹50</div>
+        </div>
+
+        <div class="order-total">
+          <div class="total-label">Total</div>
+          <div class="total-amount" id="summary-total">₹250</div>
+        </div>
+
+        <button class="pay-btn" id="pay-btn" onclick="handlePayment()">
+          CONFIRM & PAY
+        </button>
+
+        <div style="margin-top: 20px; font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; color: var(--muted); text-align: center; line-height: 1.8;">
+          🔒 SECURED BY STRIPE · QR TICKET ISSUED INSTANTLY<br>
+          CANCELLATION FREE UP TO 24HRS BEFORE SAFARI
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <span class="modal-icon">🎫</span>
+    <div class="modal-title">BOOKING CONFIRMED!</div>
+    <div class="modal-sub">Your safari slot has been reserved. Present the QR code at the entry gate. A confirmation has been sent to your mobile.</div>
+
+    <div class="qr-placeholder">
+      <div class="qr-inner" id="qr-grid"></div>
+    </div>
+
+    <div class="ticket-code">
+      <div class="ticket-code-label">Booking Reference</div>
+      <div class="ticket-code-val" id="booking-ref">WT-000000</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; font-family: 'Space Mono', monospace; font-size: 11px;">
+      <div style="background: var(--forest); padding: 16px;">
+        <div style="color: var(--muted); font-size: 9px; letter-spacing: 2px; margin-bottom: 6px;">ZONE</div>
+        <div id="confirm-zone" style="color: var(--amber);">—</div>
+      </div>
+      <div style="background: var(--forest); padding: 16px;">
+        <div style="color: var(--muted); font-size: 9px; letter-spacing: 2px; margin-bottom: 6px;">TIME</div>
+        <div id="confirm-time" style="color: var(--amber);">—</div>
+      </div>
+      <div style="background: var(--forest); padding: 16px;">
+        <div style="color: var(--muted); font-size: 9px; letter-spacing: 2px; margin-bottom: 6px;">VISITORS</div>
+        <div id="confirm-visitors" style="color: var(--amber);">—</div>
+      </div>
+      <div style="background: var(--forest); padding: 16px;">
+        <div style="color: var(--muted); font-size: 9px; letter-spacing: 2px; margin-bottom: 6px;">AMOUNT PAID</div>
+        <div id="confirm-total" style="color: var(--lime);">—</div>
+      </div>
+    </div>
+
+    <button class="modal-close" onclick="closeModal()">CLOSE & RETURN TO HOME</button>
+  </div>
+</div>
+
+<script>
+  let selectedZone = null;
+  let selectedSlot = null;
+  let zonePrices = { A: 800, B: 1200, C: 600, D: 700, E: 900 };
+  let zoneNames = { A: 'Zone A — Riverside', B: 'Zone B — Tiger Territory', C: 'Zone C — Grassland', D: 'Zone D — Deep Forest', E: 'Zone E — Hilltop' };
+
+  // Set today's date as default
+  document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('input-date').value = today;
+    updateSummary();
+    generateQR();
+    animateCounters();
+  });
+
+  function selectZone(el, zone) {
+    document.querySelectorAll('.zone-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedZone = zone;
+    updateSummary();
+    document.getElementById('step-zone').classList.add('done');
+    document.getElementById('summary-zone').textContent = zoneNames[zone];
+  }
+
+  function selectSlot(el, time) {
+    document.querySelectorAll('.slot:not(.slot-full)').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedSlot = time;
+    updateSummary();
+    document.getElementById('summary-slot').textContent = time;
+  }
+
+  function toggleAnimal(el) {
+    el.classList.toggle('active');
+  }
+
+  function updateSummary() {
+    const visitors = parseInt(document.getElementById('input-visitors').value) || 0;
+    const date = document.getElementById('input-date').value;
+    const vehicle = document.getElementById('input-vehicle').value;
+
+    if (date) {
+      const d = new Date(date);
+      document.getElementById('summary-date').textContent = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    document.getElementById('summary-visitors').textContent = visitors ? `${visitors} person${visitors > 1 ? 's' : ''}` : '—';
+    document.getElementById('summary-vehicle').textContent = vehicle === 'jeep' ? 'Open Jeep' : vehicle === 'canter' ? 'Canter' : vehicle === 'private' ? 'Private' : '—';
+
+    const pricePerHead = selectedZone ? zonePrices[selectedZone] : 800;
+    const entryFee = visitors * pricePerHead;
+    const total = entryFee + 200 + 50;
+
+    document.getElementById('summary-fee').textContent = entryFee > 0 ? `₹${entryFee.toLocaleString()}` : '₹0';
+    document.getElementById('summary-total').textContent = `₹${total.toLocaleString()}`;
+  }
+
+  function handlePayment() {
+    const name = document.getElementById('input-name').value;
+    const phone = document.getElementById('input-phone').value;
+    const date = document.getElementById('input-date').value;
+    const visitors = document.getElementById('input-visitors').value;
+
+    if (!name || !phone || !date || !visitors || !selectedZone || !selectedSlot) {
+      alert('Please complete all required fields before proceeding.');
+      return;
+    }
+
+    // Simulate payment processing
+    const btn = document.getElementById('pay-btn');
+    btn.textContent = 'PROCESSING...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      const ref = 'WT-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+      document.getElementById('booking-ref').textContent = ref;
+      document.getElementById('confirm-zone').textContent = zoneNames[selectedZone] || '—';
+      document.getElementById('confirm-time').textContent = selectedSlot;
+      document.getElementById('confirm-visitors').textContent = visitors + ' person(s)';
+      document.getElementById('confirm-total').textContent = document.getElementById('summary-total').textContent;
+
+      document.getElementById('step-pay').classList.add('done');
+      document.getElementById('step-confirm').classList.add('done');
+
+      document.getElementById('modal').classList.add('active');
+      btn.textContent = 'CONFIRM & PAY';
+      btn.disabled = false;
+
+      // Update live counter
+      const ticketEl = document.getElementById('tickets-count');
+      ticketEl.textContent = parseInt(ticketEl.textContent) + 1;
+    }, 2000);
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('active');
+  }
+
+  function generateQR() {
+    const grid = document.getElementById('qr-grid');
+    grid.innerHTML = '';
+    // Generate fake QR pattern
+    const pattern = [
+      1,1,1,1,1,1,0,1,0,1,1,0,1,1,
+      1,0,0,0,0,1,0,0,1,0,1,0,1,0,
+      1,0,1,1,0,1,0,1,0,1,0,1,0,1,
+      1,0,1,1,0,1,0,0,1,0,1,1,0,0,
+      1,0,0,0,0,1,0,1,1,0,0,1,1,0,
+      1,1,1,1,1,1,0,0,1,0,1,0,1,1,
+      0,0,0,0,0,0,0,1,0,1,0,1,0,0,
+      1,0,1,1,0,0,1,0,1,0,1,1,0,1,
+      0,1,0,1,1,0,0,1,0,1,0,0,1,0,
+      1,0,1,0,0,1,0,0,1,1,0,1,0,1,
+      0,1,0,1,0,0,1,1,0,0,1,0,1,0,
+      1,1,0,0,1,0,0,0,1,0,0,1,0,1,
+      0,0,1,1,0,1,1,1,0,1,1,0,1,0,
+      1,0,0,1,0,0,0,0,1,0,0,1,0,1,
+    ];
+    pattern.forEach(cell => {
+      const div = document.createElement('div');
+      div.className = 'qr-cell' + (cell === 0 ? ' white' : '');
+      grid.appendChild(div);
+    });
+  }
+
+  function animateCounters() {
+    // Simulate live updates
+    setInterval(() => {
+      if (Math.random() > 0.7) {
+        const sightings = document.getElementById('sightings-count');
+        sightings.textContent = parseInt(sightings.textContent) + 1;
+        sightings.style.color = 'var(--lime)';
+        setTimeout(() => sightings.style.color = 'var(--amber)', 1000);
+      }
+    }, 8000);
+  }
+</script>
+</body>
+</html>
