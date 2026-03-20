@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WildTrack — Sensor Nodes</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080c08;
+  --deep: #0c1410;
+  --surface: #111a12;
+  --panel: #141f14;
+  --border: rgba(255,255,255,0.07);
+  --green: #1e3320;
+  --lime: #7ab648;
+  --amber: #e8c547;
+  --red: #c0392b;
+  --muted: #7a8c7a;
+  --cream: #e8e0cc;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+body::before {
+  content:''; position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 70% 20%, rgba(30,51,32,0.38) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 15% 75%, rgba(200,165,58,0.07) 0%, transparent 50%);
+  pointer-events:none; z-index:0;
+  animation: atmo 12s ease-in-out infinite alternate;
+}
+body::after {
+  content:''; position:fixed; inset:0;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px);
+  pointer-events:none; z-index:0; opacity:0.5;
+}
+@keyframes atmo { from{transform:scale(1);} to{transform:scale(1.04) translate(-8px,8px);} }
+
+/* ── Layout ── */
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 48px 1fr;
+  min-height: 100vh;
+  position: relative; z-index: 1;
+  transition: grid-template-columns 0.3s ease;
+}
+.app.collapsed { grid-template-columns: 52px 1fr; }
+
+/* ── Sidebar ── */
+.sidebar {
+  grid-row: 1/3;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  width: 220px;
+  transition: width 0.3s ease;
+  position: relative; z-index: 10;
+}
+.app.collapsed .sidebar { width: 52px; }
+
+.sidebar-toggle {
+  position:absolute; top:14px; right:8px;
+  width:22px; height:22px;
+  background:var(--green); border:1px solid var(--border);
+  color:var(--muted); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; transition:all 0.2s; z-index:20;
+}
+.sidebar-toggle:hover { background:var(--lime); color:var(--bg); }
+
+.sidebar-logo {
+  padding:14px 16px; border-bottom:1px solid var(--border);
+  flex-shrink:0; position:relative;
+  min-height:54px; display:flex; flex-direction:column; justify-content:center;
+}
+.logo-text { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:3px; color:var(--cream); white-space:nowrap; overflow:hidden; transition:opacity 0.2s; }
+.logo-text span { color:var(--lime); }
+.app.collapsed .logo-text { opacity:0; pointer-events:none; }
+.logo-icon { font-size:18px; position:absolute; left:16px; top:50%; transform:translateY(-50%); opacity:0; transition:opacity 0.2s; pointer-events:none; }
+.app.collapsed .logo-icon { opacity:1; }
+.logo-time { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); margin-top:4px; letter-spacing:1px; white-space:nowrap; overflow:hidden; transition:opacity 0.2s; }
+.app.collapsed .logo-time { opacity:0; }
+.nav { flex:1; padding:12px 0; overflow:hidden; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:10px 16px; cursor:pointer; transition:all 0.2s; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); text-decoration:none; border-left:2px solid transparent; white-space:nowrap; overflow:hidden; }
+.nav-item:hover { background:var(--green); color:var(--cream); }
+.nav-item.active { background:var(--green); color:var(--lime); border-left-color:var(--lime); }
+.nav-icon { font-size:15px; width:20px; text-align:center; flex-shrink:0; }
+.nav-label { transition:opacity 0.2s; }
+.app.collapsed .nav-label { opacity:0; }
+.nav-section { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:3px; color:var(--muted); padding:14px 16px 6px; opacity:0.6; white-space:nowrap; overflow:hidden; transition:opacity 0.15s; }
+.app.collapsed .nav-section { opacity:0; }
+.sidebar-status { padding:14px 16px; border-top:1px solid var(--border); flex-shrink:0; overflow:hidden; }
+.status-item { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; white-space:nowrap; }
+.status-item:last-child { margin-bottom:0; }
+.status-text { transition:opacity 0.2s; }
+.app.collapsed .status-text { opacity:0; }
+.dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; animation:blink 2s infinite; }
+.dot.lime { background:var(--lime); }
+.dot.amber { background:var(--amber); animation-duration:1s; }
+.dot.red { background:var(--red); animation-duration:0.8s; }
+@keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(0.7);} }
+
+/* ── Header ── */
+.header {
+  grid-column:2;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 24px; gap:20px;
+}
+.header-title { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:3px; }
+.header-pills { display:flex; gap:6px; }
+.hpill {
+  background:var(--panel); border:1px solid var(--border);
+  padding:4px 12px; display:flex; flex-direction:column; align-items:center;
+}
+.hpill-val { font-family:'Bebas Neue',sans-serif; font-size:16px; color:var(--amber); line-height:1; }
+.hpill-val.lime { color:var(--lime); }
+.hpill-val.red  { color:var(--red); }
+.hpill-lbl { font-family:'Space Mono',monospace; font-size:7px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; white-space:nowrap; }
+.live-badge { display:flex; align-items:center; gap:6px; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--red); }
+
+/* ── Content ── */
+.content {
+  grid-column:2;
+  overflow-y:auto;
+  padding:0;
+}
+.content::-webkit-scrollbar { width:3px; }
+.content::-webkit-scrollbar-track { background:var(--surface); }
+.content::-webkit-scrollbar-thumb { background:var(--green); }
+
+.section { padding:20px 24px; }
+.section-title {
+  font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:3px;
+  color:var(--muted); margin-bottom:16px;
+  display:flex; align-items:center; gap:10px;
+}
+.section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── Node grid ── */
+.nodes-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+  margin-bottom:24px;
+}
+
+.node-card {
+  background:var(--panel); border:1px solid var(--border);
+  display:flex; flex-direction:column;
+  transition:border-color 0.2s, transform 0.2s;
+  cursor:pointer; position:relative; overflow:hidden;
+}
+.node-card::before {
+  content:''; position:absolute; top:0; left:0; width:3px; height:100%;
+  background:var(--lime); transition:background 0.3s;
+}
+.node-card.warn::before { background:var(--amber); }
+.node-card.offline::before { background:var(--red); }
+.node-card:hover { border-color:rgba(255,255,255,0.14); transform:translateY(-2px); }
+
+.node-header {
+  padding:12px 14px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.node-id { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:2px; }
+.node-badge {
+  font-family:'Space Mono',monospace; font-size:8px; letter-spacing:1px;
+  padding:2px 8px; display:flex; align-items:center; gap:5px;
+}
+.node-badge.online { background:rgba(122,182,72,0.15); color:var(--lime); border:1px solid rgba(122,182,72,0.25); }
+.node-badge.warn   { background:rgba(232,197,71,0.15);  color:var(--amber); border:1px solid rgba(232,197,71,0.25); }
+.node-badge.offline{ background:rgba(192,57,43,0.15);   color:var(--red);   border:1px solid rgba(192,57,43,0.25); }
+
+.node-body { padding:12px 14px; flex:1; }
+
+.node-type { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+.node-zone { font-size:12px; color:var(--cream); margin-bottom:10px; }
+
+.sensors-list { display:flex; flex-direction:column; gap:6px; }
+.sensor-row { display:flex; align-items:center; justify-content:space-between; }
+.sensor-name { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; }
+.sensor-val  { font-family:'Space Mono',monospace; font-size:11px; color:var(--amber); font-weight:700; }
+.sensor-val.green { color:var(--lime); }
+.sensor-val.red   { color:var(--red); }
+
+.node-footer {
+  padding:8px 14px; border-top:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.node-uptime { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); }
+.node-rssi   { font-family:'Space Mono',monospace; font-size:8px; }
+
+/* Signal strength bar */
+.rssi-bar { display:flex; gap:2px; align-items:flex-end; }
+.rssi-seg { width:4px; background:var(--green); transition:background 0.3s; }
+.rssi-seg.active { background:var(--lime); }
+.rssi-seg:nth-child(1) { height:5px; }
+.rssi-seg:nth-child(2) { height:8px; }
+.rssi-seg:nth-child(3) { height:11px; }
+.rssi-seg:nth-child(4) { height:14px; }
+
+/* Mini sparkline */
+.sparkline-wrap { margin-top:8px; }
+.sparkline-label { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px; margin-bottom:4px; }
+.sparkline { width:100%; height:28px; overflow:hidden; }
+.sparkline svg { width:100%; height:100%; }
+
+/* ── Detail panel ── */
+.detail-panel {
+  background:var(--panel); border:1px solid var(--border);
+  margin-bottom:24px;
+}
+.detail-header {
+  padding:12px 16px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.detail-title { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:2px; }
+.detail-body { padding:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+.detail-metric { background:var(--surface); padding:12px 14px; border:1px solid var(--border); }
+.dm-label { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+.dm-val { font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--amber); line-height:1; }
+.dm-val.lime { color:var(--lime); }
+.dm-val.red  { color:var(--red); }
+.dm-sub { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); margin-top:4px; }
+
+/* ── History chart ── */
+.chart-panel {
+  background:var(--panel); border:1px solid var(--border);
+  margin-bottom:24px;
+}
+.chart-header {
+  padding:12px 16px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.chart-tabs { display:flex; gap:4px; }
+.chart-tab {
+  font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px;
+  padding:4px 10px; border:1px solid var(--border); cursor:pointer;
+  color:var(--muted); transition:all 0.2s; background:transparent;
+}
+.chart-tab.active { background:var(--green); color:var(--lime); border-color:var(--lime); }
+.chart-tab:hover:not(.active) { color:var(--cream); border-color:rgba(255,255,255,0.2); }
+.chart-body { padding:16px; }
+canvas#mainChart { width:100%; height:160px; display:block; }
+
+/* ── Event log ── */
+.event-log { background:var(--panel); border:1px solid var(--border); margin-bottom:24px; }
+.event-list { max-height:220px; overflow-y:auto; }
+.event-list::-webkit-scrollbar { width:2px; }
+.event-list::-webkit-scrollbar-thumb { background:var(--green); }
+.event-entry {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:9px 14px; border-bottom:1px solid var(--border);
+  animation:slideIn 0.3s ease;
+}
+.event-entry:last-child { border-bottom:none; }
+@keyframes slideIn { from{opacity:0;transform:translateY(-6px);} to{opacity:1;transform:translateY(0);} }
+.event-time { font-family:'Space Mono',monospace; font-size:9px; color:var(--amber); flex-shrink:0; width:44px; }
+.event-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.event-text { font-size:12px; color:var(--cream); flex:1; line-height:1.5; }
+.event-node { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); padding:1px 5px; border:1px solid var(--border); flex-shrink:0; }
+
+/* ── Network topology ── */
+.topology-panel { background:var(--panel); border:1px solid var(--border); margin-bottom:24px; }
+.topology-body  { padding:16px; }
+.topo-node {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 12px; background:var(--surface); border:1px solid var(--border);
+  margin-bottom:8px; transition:border-color 0.2s;
+}
+.topo-node:hover { border-color:rgba(255,255,255,0.14); }
+.topo-icon { font-size:18px; flex-shrink:0; }
+.topo-info { flex:1; }
+.topo-name { font-size:13px; font-weight:500; color:var(--cream); }
+.topo-desc { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); margin-top:2px; }
+.topo-meta { text-align:right; }
+.topo-ping { font-family:'Space Mono',monospace; font-size:10px; color:var(--lime); }
+.topo-since { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); margin-top:2px; }
+
+/* Arrow between nodes in topology */
+.topo-arrow {
+  display:flex; align-items:center; gap:8px;
+  padding:0 12px 8px 28px;
+  font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px;
+}
+.topo-arrow::before { content:''; width:1px; height:12px; background:var(--border); }
+
+/* ── Responsive ── */
+@media(max-width:900px) {
+  .nodes-grid { grid-template-columns:1fr 1fr; }
+  .detail-body { grid-template-columns:1fr 1fr; }
+  .header-pills { display:none; }
+}
+@media(max-width:600px) {
+  .nodes-grid { grid-template-columns:1fr; }
+  .detail-body { grid-template-columns:1fr; }
+}
+
+/* ── Flash ── */
+@keyframes flash { 0%{background:rgba(122,182,72,0.18);} 100%{background:transparent;} }
+.flash { animation:flash 0.5s ease; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()" id="sidebar-toggle" title="Toggle sidebar">◀</button>
+    <div class="sidebar-logo">
+      <div class="logo-icon">🌿</div>
+      <div class="logo-text">WILD<span>TRACK</span></div>
+      <div class="logo-time" id="sidebar-time">--:--:--</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Navigation</div>
+      <a href="/" class="nav-item"><span class="nav-icon">🎫</span><span class="nav-label">Ticket Booking</span></a>
+      <a href="/control" class="nav-item"><span class="nav-icon">🖥</span><span class="nav-label">Control Room</span></a>
+      <a href="/staff" class="nav-item"><span class="nav-icon">🦺</span><span class="nav-label">Staff Ops</span></a>
+      <div class="nav-section">System</div>
+      <a href="/sensors" class="nav-item active"><span class="nav-icon">📡</span><span class="nav-label">Sensor Nodes</span></a>
+      <div class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">Analytics</span></div>
+      <div class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-label">Settings</span></div>
+    </nav>
+    <div class="sidebar-status">
+      <div class="status-item"><div class="dot lime"></div><span class="status-text">FIREBASE CONNECTED</span></div>
+      <div class="status-item"><div class="dot lime"></div><span class="status-text">ESP32 NODES: 4/4</span></div>
+      <div class="status-item"><div class="dot amber"></div><span class="status-text">SYNC: <span id="last-sync">0s</span></span></div>
+    </div>
+  </aside>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-title">SENSOR NODES</div>
+    <div class="header-pills">
+      <div class="hpill"><div class="hpill-val lime" id="h-online">4</div><div class="hpill-lbl">Online</div></div>
+      <div class="hpill"><div class="hpill-val" id="h-offline">0</div><div class="hpill-lbl">Offline</div></div>
+      <div class="hpill"><div class="hpill-val" id="h-warn">1</div><div class="hpill-lbl">Warning</div></div>
+      <div class="hpill"><div class="hpill-val" id="h-readings">0</div><div class="hpill-lbl">Readings</div></div>
+      <div class="hpill"><div class="hpill-val" id="h-alerts">2</div><div class="hpill-lbl">Alerts</div></div>
+    </div>
+    <div class="live-badge"><div class="dot red"></div>LIVE · <span id="header-time">--:--:--</span></div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="content">
+
+    <!-- Node Cards -->
+    <div class="section">
+      <div class="section-title">FIELD NODES</div>
+      <div class="nodes-grid" id="nodes-grid"></div>
+    </div>
+
+    <!-- Aggregate metrics -->
+    <div class="section" style="padding-top:0;">
+      <div class="section-title">AGGREGATE READINGS</div>
+      <div class="detail-panel">
+        <div class="detail-header">
+          <div class="detail-title">ENVIRONMENTAL SUMMARY — ALL ZONES</div>
+          <span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);">AVG ACROSS ACTIVE NODES</span>
+        </div>
+        <div class="detail-body">
+          <div class="detail-metric">
+            <div class="dm-label">Avg Temperature</div>
+            <div class="dm-val" id="agg-temp">28°C</div>
+            <div class="dm-sub">BME280 · All zones</div>
+          </div>
+          <div class="detail-metric">
+            <div class="dm-label">Avg Humidity</div>
+            <div class="dm-val" id="agg-hum">63%</div>
+            <div class="dm-sub">BME280 · All zones</div>
+          </div>
+          <div class="detail-metric">
+            <div class="dm-label">Avg Pressure</div>
+            <div class="dm-val" id="agg-pres">1013 hPa</div>
+            <div class="dm-sub">BME280 · All zones</div>
+          </div>
+          <div class="detail-metric">
+            <div class="dm-label">Fire Risk Index</div>
+            <div class="dm-val lime" id="agg-fire">LOW</div>
+            <div class="dm-sub">Temp + humidity composite</div>
+          </div>
+          <div class="detail-metric">
+            <div class="dm-label">RFID Scans Today</div>
+            <div class="dm-val" id="agg-rfid">0</div>
+            <div class="dm-sub">RC522 · All zone gates</div>
+          </div>
+          <div class="detail-metric">
+            <div class="dm-label">IR Triggers Today</div>
+            <div class="dm-val" id="agg-ir">0</div>
+            <div class="dm-sub">IR sensors · All nodes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="section" style="padding-top:0;">
+      <div class="section-title">TELEMETRY HISTORY</div>
+      <div class="chart-panel">
+        <div class="chart-header">
+          <div class="detail-title" style="font-size:14px;">LAST 30 READINGS</div>
+          <div class="chart-tabs" id="chart-tabs">
+            <button class="chart-tab active" onclick="switchChart('temp',this)">TEMP</button>
+            <button class="chart-tab" onclick="switchChart('humidity',this)">HUMIDITY</button>
+            <button class="chart-tab" onclick="switchChart('pressure',this)">PRESSURE</button>
+            <button class="chart-tab" onclick="switchChart('rssi',this)">SIGNAL</button>
+          </div>
+        </div>
+        <div class="chart-body">
+          <canvas id="mainChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Network topology -->
+    <div class="section" style="padding-top:0;">
+      <div class="section-title">NETWORK TOPOLOGY</div>
+      <div class="topology-panel">
+        <div class="detail-header">
+          <div class="detail-title">ESP32 MESH → FIREBASE → DASHBOARD</div>
+          <span style="font-family:'Space Mono',monospace;font-size:9px;color:var(--lime);">WiFi 802.11 b/g/n · 2.4GHz</span>
+        </div>
+        <div class="topology-body">
+          <!-- Firebase cloud -->
+          <div class="topo-node" style="border-color:rgba(232,197,71,0.3);">
+            <div class="topo-icon">☁️</div>
+            <div class="topo-info">
+              <div class="topo-name">Firebase Realtime Database</div>
+              <div class="topo-desc">GOOGLE CLOUD · US-CENTRAL1 · REAL-TIME SYNC</div>
+            </div>
+            <div class="topo-meta">
+              <div class="topo-ping" style="color:var(--amber);">CLOUD</div>
+              <div class="topo-since">NODE.JS → REST API</div>
+            </div>
+          </div>
+          <div class="topo-arrow">WiFi → HTTP POST → Firebase REST API</div>
+
+          <!-- ESP32 nodes -->
+          <div id="topo-nodes"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="section" style="padding-top:0;">
+      <div class="section-title">NODE EVENT LOG</div>
+      <div class="event-log">
+        <div class="detail-header">
+          <div class="detail-title">LIVE EVENTS</div>
+          <span class="node-badge online"><div class="dot lime" style="animation:none;"></div>STREAMING</span>
+        </div>
+        <div class="event-list" id="event-list"></div>
+      </div>
+    </div>
+
+    <div style="height:40px;"></div>
+  </div>
+</div>
+
+<!-- Node detail modal -->
+<div id="node-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s;">
+  <div style="background:var(--surface);border:1px solid var(--border);width:560px;max-width:94vw;max-height:85vh;overflow-y:auto;" id="modal-inner">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;" id="modal-title">NODE</div>
+      <button onclick="closeModal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:9px;padding:5px 12px;cursor:pointer;letter-spacing:2px;">✕ CLOSE</button>
+    </div>
+    <div id="modal-body" style="padding:16px;"></div>
+  </div>
+</div>
+
+<script>
+// ── Node definitions — based on PS components: ESP32, ESP32-CAM, RFID RC522,
+//    Neo-6M GPS, IR Sensor, BME280 ──────────────────────────────────────────
+const NODES = [
+  {
+    id: 'ESP32-A1', zone: 'Zone A — Riverside Corridor',
+    type: 'ENV + RFID + GPS', status: 'online',
+    components: ['ESP32 DevKit', 'BME280 Sensor', 'RFID RC522', 'Neo-6M GPS'],
+    icon: '🔌',
+    readings: { temp: 27.4, humidity: 68, pressure: 1012, rssi: -58 },
+    rfid_today: 0, ir_today: 0,
+    uptime: '6h 14m', ip: '192.168.1.101',
+    lat: 19.0178, lng: 72.8478,
+  },
+  {
+    id: 'ESP32-B1', zone: 'Zone B — Tiger Territory',
+    type: 'ENV + RFID + IR', status: 'online',
+    components: ['ESP32 DevKit', 'BME280 Sensor', 'RFID RC522', 'IR Sensor'],
+    icon: '🔌',
+    readings: { temp: 29.1, humidity: 61, pressure: 1013, rssi: -65 },
+    rfid_today: 0, ir_today: 0,
+    uptime: '6h 14m', ip: '192.168.1.102',
+    lat: 19.0234, lng: 72.8512,
+  },
+  {
+    id: 'ESP32-CAM1', zone: 'Zone B — Tiger Territory',
+    type: 'CAM + DETECTION', status: 'online',
+    components: ['ESP32-CAM Module', 'OV2640 Camera', 'YOLOv8 (Laptop)', 'WiFi Stream'],
+    icon: '📷',
+    readings: { temp: null, humidity: null, pressure: null, rssi: -62 },
+    rfid_today: 0, ir_today: 0,
+    uptime: '6h 14m', ip: '192.168.1.103',
+    lat: 19.0240, lng: 72.8520,
+    detections_today: 0,
+  },
+  {
+    id: 'ESP32-D1', zone: 'Zone D — Deep Forest',
+    type: 'ENV + IR + GPS', status: 'warn',
+    components: ['ESP32 DevKit', 'BME280 Sensor', 'IR Sensor', 'Neo-6M GPS'],
+    icon: '🔌',
+    readings: { temp: 31.2, humidity: 54, pressure: 1011, rssi: -78 },
+    rfid_today: 0, ir_today: 0,
+    uptime: '2h 31m', ip: '192.168.1.104',
+    lat: 19.0156, lng: 72.8490,
+    warn_reason: 'Weak signal — RSSI −78 dBm',
+  },
+  {
+    id: 'ESP32-E1', zone: 'Zone E — Hilltop Viewpoint',
+    type: 'ENV + RFID', status: 'online',
+    components: ['ESP32 DevKit', 'BME280 Sensor', 'RFID RC522'],
+    icon: '🔌',
+    readings: { temp: 26.8, humidity: 59, pressure: 1015, rssi: -55 },
+    rfid_today: 0, ir_today: 0,
+    uptime: '6h 14m', ip: '192.168.1.105',
+    lat: 19.0200, lng: 72.8560,
+  },
+  {
+    id: 'ESP32-RC1', zone: 'Safari Vehicle JV-03',
+    type: 'RC VEHICLE NODE', status: 'online',
+    components: ['ESP32 DevKit', 'Neo-6M GPS', 'IR Sensor', 'Motor Driver L298N', 'Li-Po Battery'],
+    icon: '🚗',
+    readings: { temp: null, humidity: null, pressure: null, rssi: -60 },
+    rfid_today: 0, ir_today: 0,
+    uptime: '3h 48m', ip: '192.168.1.106',
+    lat: 19.0245, lng: 72.8545,
+    speed: 24,
+  },
+];
+
+// Chart data history
+const chartHistory = { temp:[], humidity:[], pressure:[], rssi:[] };
+for (let i = 0; i < 30; i++) {
+  chartHistory.temp.push(26 + Math.random()*6);
+  chartHistory.humidity.push(55 + Math.random()*18);
+  chartHistory.pressure.push(1010 + Math.random()*6);
+  chartHistory.rssi.push(-80 + Math.random()*30);
+}
+
+let activeChart = 'temp';
+let totalReadings = 0, totalRFID = 0, totalIR = 0, totalDetections = 0;
+let syncSecs = 0;
+
+// ── Build node cards ─────────────────────────────────────────────────────────
+function buildNodes() {
+  const grid = document.getElementById('nodes-grid');
+  NODES.forEach((n, i) => {
+    const card = document.createElement('div');
+    card.className = 'node-card ' + (n.status === 'warn' ? 'warn' : n.status === 'offline' ? 'offline' : '');
+    card.id = 'node-card-'+i;
+    card.onclick = () => openModal(i);
+
+    const rssiSegs = rssiToSegs(n.readings.rssi);
+    const hasBME = n.readings.temp !== null;
+
+    card.innerHTML = `
+      <div class="node-header">
+        <div class="node-id">${n.icon} ${n.id}</div>
+        <div class="node-badge ${n.status}">
+          <div class="dot ${n.status === 'online' ? 'lime' : n.status === 'warn' ? 'amber' : 'red'}" style="${n.status!=='online'?'':''}"></div>
+          ${n.status.toUpperCase()}
+        </div>
+      </div>
+      <div class="node-body">
+        <div class="node-type">${n.type}</div>
+        <div class="node-zone">${n.zone}</div>
+        <div class="sensors-list">
+          ${hasBME ? `
+          <div class="sensor-row">
+            <span class="sensor-name">TEMP</span>
+            <span class="sensor-val" id="ns-temp-${i}">${n.readings.temp.toFixed(1)}°C</span>
+          </div>
+          <div class="sensor-row">
+            <span class="sensor-name">HUMIDITY</span>
+            <span class="sensor-val" id="ns-hum-${i}">${n.readings.humidity.toFixed(0)}%</span>
+          </div>
+          <div class="sensor-row">
+            <span class="sensor-name">PRESSURE</span>
+            <span class="sensor-val" id="ns-pres-${i}">${n.readings.pressure.toFixed(0)} hPa</span>
+          </div>` : ''}
+          ${n.components.includes('Neo-6M GPS') ? `
+          <div class="sensor-row">
+            <span class="sensor-name">GPS</span>
+            <span class="sensor-val green" id="ns-gps-${i}">${n.lat.toFixed(4)}°N</span>
+          </div>` : ''}
+          ${n.components.includes('RFID RC522') ? `
+          <div class="sensor-row">
+            <span class="sensor-name">RFID SCANS</span>
+            <span class="sensor-val" id="ns-rfid-${i}">${n.rfid_today}</span>
+          </div>` : ''}
+          ${n.components.includes('IR Sensor') ? `
+          <div class="sensor-row">
+            <span class="sensor-name">IR TRIGGERS</span>
+            <span class="sensor-val" id="ns-ir-${i}">${n.ir_today}</span>
+          </div>` : ''}
+          ${n.id.includes('CAM') ? `
+          <div class="sensor-row">
+            <span class="sensor-name">DETECTIONS</span>
+            <span class="sensor-val green" id="ns-det-${i}">${n.detections_today || 0}</span>
+          </div>` : ''}
+          ${n.id.includes('RC') ? `
+          <div class="sensor-row">
+            <span class="sensor-name">SPEED</span>
+            <span class="sensor-val" id="ns-spd-${i}">${n.speed} km/h</span>
+          </div>` : ''}
+          ${n.warn_reason ? `
+          <div style="margin-top:6px;font-family:'Space Mono',monospace;font-size:8px;color:var(--amber);letter-spacing:1px;">⚠ ${n.warn_reason}</div>
+          ` : ''}
+        </div>
+      </div>
+      <div class="node-footer">
+        <span class="node-uptime">UP ${n.uptime} · ${n.ip}</span>
+        <div class="rssi-bar">
+          ${[1,2,3,4].map(s=>`<div class="rssi-seg ${s<=rssiSegs?'active':''}"></div>`).join('')}
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function rssiToSegs(rssi) {
+  if (!rssi) return 0;
+  if (rssi >= -55) return 4;
+  if (rssi >= -65) return 3;
+  if (rssi >= -75) return 2;
+  return 1;
+}
+
+// ── Build topology ───────────────────────────────────────────────────────────
+function buildTopology() {
+  const cont = document.getElementById('topo-nodes');
+  NODES.forEach(n => {
+    const row = document.createElement('div');
+    const ping = n.status === 'offline' ? '—' :
+                 n.status === 'warn' ? (80 + Math.round(Math.random()*40))+'ms' :
+                 (12 + Math.round(Math.random()*20))+'ms';
+    row.innerHTML = `
+      <div class="topo-node ${n.status==='warn'?'style="border-color:rgba(232,197,71,0.3);"':''}">
+        <div class="topo-icon">${n.icon}</div>
+        <div class="topo-info">
+          <div class="topo-name">${n.id}</div>
+          <div class="topo-desc">${n.components.join(' · ')}</div>
+        </div>
+        <div class="topo-meta">
+          <div class="topo-ping" style="color:${n.status==='warn'?'var(--amber)':n.status==='offline'?'var(--red)':'var(--lime)'}">${ping}</div>
+          <div class="topo-since">${n.ip} · ${n.zone.split('—')[0].trim()}</div>
+        </div>
+      </div>
+      <div class="topo-arrow">WiFi POST → /api/telemetry → Firebase /${n.id.toLowerCase()}</div>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+// ── Seed event log ───────────────────────────────────────────────────────────
+const EVENT_TEMPLATES = [
+  { text: 'BME280 reading synced to Firebase', node: 'ESP32-A1', color: 'var(--lime)' },
+  { text: 'RFID tag scanned at Zone B gate — vehicle JV-03', node: 'ESP32-B1', color: 'var(--amber)' },
+  { text: 'IR sensor triggered — movement detected Zone B', node: 'ESP32-B1', color: 'var(--amber)' },
+  { text: 'GPS fix acquired — 19.0234°N 72.8512°E', node: 'ESP32-RC1', color: 'var(--lime)' },
+  { text: 'Animal detection pushed to Firebase — TIGER 87%', node: 'ESP32-CAM1', color: 'var(--lime)' },
+  { text: 'Temperature spike detected — 31.2°C in Zone D', node: 'ESP32-D1', color: 'var(--amber)' },
+  { text: 'WiFi reconnect after signal drop', node: 'ESP32-D1', color: 'var(--amber)' },
+  { text: 'RFID mismatch — unknown tag at Zone E', node: 'ESP32-E1', color: 'var(--red)' },
+  { text: 'Barometric pressure drop detected — possible weather change', node: 'ESP32-A1', color: 'var(--muted)' },
+  { text: 'Node heartbeat OK — all sensors responsive', node: 'ESP32-B1', color: 'var(--lime)' },
+];
+
+function seedEvents() {
+  const seed = [
+    { ...EVENT_TEMPLATES[4], time: '06:45' },
+    { ...EVENT_TEMPLATES[1], time: '07:02' },
+    { ...EVENT_TEMPLATES[2], time: '07:15' },
+    { ...EVENT_TEMPLATES[5], time: '07:28' },
+    { ...EVENT_TEMPLATES[6], time: '07:31' },
+    { ...EVENT_TEMPLATES[0], time: '07:38' },
+    { ...EVENT_TEMPLATES[3], time: '07:44' },
+  ];
+  seed.forEach(e => addEvent(e.text, e.node, e.color, e.time));
+}
+
+function addEvent(text, node, color, time) {
+  const list = document.getElementById('event-list');
+  const now = time || new Date().toTimeString().substr(0,5);
+  const entry = document.createElement('div');
+  entry.className = 'event-entry';
+  entry.innerHTML = `
+    <span class="event-time">${now}</span>
+    <div class="event-dot" style="background:${color};"></div>
+    <span class="event-text">${text}</span>
+    <span class="event-node">${node}</span>
+  `;
+  list.insertBefore(entry, list.firstChild);
+  if (list.children.length > 40) list.removeChild(list.lastChild);
+}
+
+// ── Chart ────────────────────────────────────────────────────────────────────
+function drawChart(type) {
+  const canvas = document.getElementById('mainChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio || 800;
+  canvas.height = 160 * window.devicePixelRatio || 320;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  const W = canvas.offsetWidth || 800;
+  const H = 160;
+  const data = chartHistory[type];
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let y = 0; y <= 4; y++) {
+    const yp = H - (y/4)*H*0.85 - H*0.05;
+    ctx.beginPath(); ctx.moveTo(0, yp); ctx.lineTo(W, yp); ctx.stroke();
+    const label = (min + (y/4)*range).toFixed(type==='pressure'?0:1);
+    ctx.fillStyle = 'rgba(122,140,122,0.6)';
+    ctx.font = `${9/window.devicePixelRatio}px Space Mono, monospace`;
+    ctx.fillText(label, 4, yp - 3);
+  }
+
+  // Area fill
+  const color = type==='temp'?'232,197,71': type==='humidity'?'122,182,72': type==='pressure'?'200,165,58':'140,200,120';
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, `rgba(${color},0.25)`);
+  grad.addColorStop(1, `rgba(${color},0.0)`);
+
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length-1)) * W;
+    const y = H - ((v-min)/range) * H * 0.8 - H*0.08;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = `rgba(${color},0.9)`;
+  ctx.lineWidth = 2;
+  data.forEach((v, i) => {
+    const x = (i / (data.length-1)) * W;
+    const y = H - ((v-min)/range) * H * 0.8 - H*0.08;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots on last 3 points
+  for (let i = data.length-3; i < data.length; i++) {
+    const x = (i / (data.length-1)) * W;
+    const y = H - ((data[i]-min)/range) * H * 0.8 - H*0.08;
+    ctx.beginPath();
+    ctx.arc(x, y, i===data.length-1?4:2.5, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${color},1)`;
+    ctx.fill();
+  }
+}
+
+function switchChart(type, btn) {
+  activeChart = type;
+  document.querySelectorAll('.chart-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  drawChart(type);
+}
+
+// ── Live updates ─────────────────────────────────────────────────────────────
+function liveUpdate() {
+  // Update all nodes with slight sensor drift
+  NODES.forEach((n, i) => {
+    if (n.status === 'offline') return;
+
+    if (n.readings.temp !== null) {
+      n.readings.temp = +(n.readings.temp + (Math.random()-0.5)*0.4).toFixed(1);
+      n.readings.humidity = +Math.max(30, Math.min(95, n.readings.humidity + (Math.random()-0.5)*1.5)).toFixed(0);
+      n.readings.pressure = +Math.max(1005, Math.min(1020, n.readings.pressure + (Math.random()-0.5)*0.3)).toFixed(1);
+      const ts = document.getElementById('ns-temp-'+i);
+      const hs = document.getElementById('ns-hum-'+i);
+      const ps = document.getElementById('ns-pres-'+i);
+      if (ts) ts.textContent = n.readings.temp.toFixed(1)+'°C';
+      if (hs) hs.textContent = n.readings.humidity+'%';
+      if (ps) ps.textContent = n.readings.pressure.toFixed(0)+' hPa';
+    }
+
+    if (n.id.includes('RC') && n.speed) {
+      n.speed = +Math.max(0, Math.min(35, n.speed + (Math.random()-0.5)*3)).toFixed(0);
+      n.lat += (Math.random()-0.5)*0.0005;
+      n.lng += (Math.random()-0.5)*0.0005;
+      const sd = document.getElementById('ns-spd-'+i);
+      const gd = document.getElementById('ns-gps-'+i);
+      if (sd) sd.textContent = n.speed+' km/h';
+      if (gd) gd.textContent = n.lat.toFixed(4)+'°N';
+    }
+
+    // Occasional RFID or IR event
+    if (Math.random() > 0.85 && n.components.includes('RFID RC522')) {
+      n.rfid_today++;
+      totalRFID++;
+      const el = document.getElementById('ns-rfid-'+i);
+      if (el) { el.textContent = n.rfid_today; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),500); }
+      document.getElementById('agg-rfid').textContent = totalRFID;
+      addEvent('RFID scan — vehicle tag detected at '+n.zone.split('—')[0].trim(), n.id, 'var(--amber)');
+    }
+
+    if (Math.random() > 0.9 && n.components.includes('IR Sensor')) {
+      n.ir_today++;
+      totalIR++;
+      const el = document.getElementById('ns-ir-'+i);
+      if (el) { el.textContent = n.ir_today; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),500); }
+      document.getElementById('agg-ir').textContent = totalIR;
+      addEvent('IR trigger — proximity event in '+n.zone.split('—')[0].trim(), n.id, 'var(--amber)');
+    }
+
+    if (Math.random() > 0.92 && n.id.includes('CAM')) {
+      n.detections_today = (n.detections_today||0) + 1;
+      totalDetections++;
+      const el = document.getElementById('ns-det-'+i);
+      if (el) { el.textContent = n.detections_today; el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),500); }
+      const animals = ['TIGER','ELEPHANT','DEER','LEOPARD','EAGLE'];
+      const conf = (72+Math.random()*24).toFixed(0);
+      addEvent(`Animal detection → ${animals[Math.floor(Math.random()*animals.length)]} ${conf}% confidence`, n.id, 'var(--lime)');
+    }
+  });
+
+  // Update aggregates
+  const tempNodes = NODES.filter(n => n.readings.temp !== null);
+  const avgTemp = tempNodes.reduce((s,n)=>s+n.readings.temp,0)/tempNodes.length;
+  const avgHum  = tempNodes.reduce((s,n)=>s+n.readings.humidity,0)/tempNodes.length;
+  const avgPres = tempNodes.reduce((s,n)=>s+n.readings.pressure,0)/tempNodes.length;
+  document.getElementById('agg-temp').textContent = avgTemp.toFixed(1)+'°C';
+  document.getElementById('agg-hum').textContent  = avgHum.toFixed(0)+'%';
+  document.getElementById('agg-pres').textContent = avgPres.toFixed(0)+' hPa';
+  const fireRisk = avgTemp > 34 ? 'HIGH' : avgTemp > 30 ? 'MEDIUM' : 'LOW';
+  const fireEl = document.getElementById('agg-fire');
+  fireEl.textContent = fireRisk;
+  fireEl.className = 'dm-val ' + (fireRisk==='HIGH'?'red':fireRisk==='MEDIUM'?'':'lime');
+
+  // Push to chart
+  totalReadings++;
+  document.getElementById('h-readings').textContent = totalReadings;
+  chartHistory.temp.push(avgTemp); chartHistory.temp.shift();
+  chartHistory.humidity.push(avgHum); chartHistory.humidity.shift();
+  chartHistory.pressure.push(avgPres); chartHistory.pressure.shift();
+  const avgRSSI = NODES.filter(n=>n.readings.rssi).reduce((s,n)=>s+n.readings.rssi,0)/NODES.filter(n=>n.readings.rssi).length;
+  chartHistory.rssi.push(avgRSSI); chartHistory.rssi.shift();
+  drawChart(activeChart);
+
+  // Flash a node card occasionally
+  if (Math.random() > 0.7) {
+    const idx = Math.floor(Math.random()*NODES.length);
+    const card = document.getElementById('node-card-'+idx);
+    if (card) { card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),500); }
+  }
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────────
+function openModal(i) {
+  const n = NODES[i];
+  document.getElementById('modal-title').textContent = n.id + ' — DETAIL';
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div style="background:var(--panel);padding:12px;border:1px solid var(--border);">
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;">ZONE</div>
+        <div style="font-size:13px;">${n.zone}</div>
+      </div>
+      <div style="background:var(--panel);padding:12px;border:1px solid var(--border);">
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;">STATUS</div>
+        <div class="node-badge ${n.status}" style="display:inline-flex;">${n.status.toUpperCase()}</div>
+      </div>
+      <div style="background:var(--panel);padding:12px;border:1px solid var(--border);">
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;">IP ADDRESS</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--amber);">${n.ip}</div>
+      </div>
+      <div style="background:var(--panel);padding:12px;border:1px solid var(--border);">
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:4px;">UPTIME</div>
+        <div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--lime);">${n.uptime}</div>
+      </div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">COMPONENTS</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+      ${n.components.map(c=>`<span style="background:var(--green);border:1px solid var(--border);font-family:'Space Mono',monospace;font-size:9px;color:var(--cream);padding:4px 10px;letter-spacing:1px;">${c}</span>`).join('')}
+    </div>
+    ${n.readings.temp !== null ? `
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">LIVE SENSOR DATA</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:var(--panel);padding:10px;border:1px solid var(--border);text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--amber);">${n.readings.temp.toFixed(1)}°</div>
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);">TEMP °C</div>
+      </div>
+      <div style="background:var(--panel);padding:10px;border:1px solid var(--border);text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--lime);">${n.readings.humidity}%</div>
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);">HUMIDITY</div>
+      </div>
+      <div style="background:var(--panel);padding:10px;border:1px solid var(--border);text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--amber);">${n.readings.pressure.toFixed(0)}</div>
+        <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--muted);">hPa</div>
+      </div>
+    </div>` : ''}
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">CONNECTIVITY</div>
+    <div style="background:var(--panel);padding:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--cream);">WiFi RSSI: <span style="color:${n.readings.rssi>=-65?'var(--lime)':n.readings.rssi>=-75?'var(--amber)':'var(--red)'}">${n.readings.rssi} dBm</span></div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;">Protocol: HTTP POST → Firebase REST</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px;">Band: 2.4GHz 802.11 b/g/n</div>
+      </div>
+      <div class="rssi-bar">${[1,2,3,4].map(s=>`<div class="rssi-seg ${s<=rssiToSegs(n.readings.rssi)?'active':''}"></div>`).join('')}</div>
+    </div>
+    ${n.warn_reason ? `<div style="margin-top:10px;background:rgba(232,197,71,0.08);border:1px solid rgba(232,197,71,0.25);padding:10px 12px;font-family:'Space Mono',monospace;font-size:10px;color:var(--amber);">⚠ ${n.warn_reason}</div>` : ''}
+  `;
+  const modal = document.getElementById('node-modal');
+  modal.style.opacity = '1';
+  modal.style.pointerEvents = 'all';
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+}
+function closeModal() {
+  const modal = document.getElementById('node-modal');
+  modal.style.opacity = '0';
+  modal.style.pointerEvents = 'none';
+}
+
+// ── Sidebar + time ───────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const app = document.getElementById('app');
+  const btn = document.getElementById('sidebar-toggle');
+  app.classList.toggle('collapsed');
+  btn.textContent = app.classList.contains('collapsed') ? '▶' : '◀';
+  setTimeout(() => drawChart(activeChart), 320); // redraw after transition
+}
+
+function updateTime() {
+  const t = new Date().toTimeString().split(' ')[0];
+  document.getElementById('sidebar-time').textContent = t;
+  document.getElementById('header-time').textContent = t;
+  syncSecs++;
+  document.getElementById('last-sync').textContent = syncSecs+'s';
+  if (syncSecs >= 15) syncSecs = 0;
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  buildNodes();
+  buildTopology();
+  seedEvents();
+  updateTime();
+  setInterval(updateTime, 1000);
+  setTimeout(() => { drawChart('temp'); }, 100);
+  setInterval(() => liveUpdate(), 4000);
+  window.addEventListener('resize', () => drawChart(activeChart));
+}
+
+init();
+</script>
+</body>
+</html>
